@@ -1,0 +1,20 @@
+.player-controls-container {
+    width: 100%;
+    height: 100%;
+    min-width: 290px;
+}
+
+.player-grid-container {
+    display: grid;
+    grid-template-columns: repeat(9, 30px);
+    justify-content: center;
+    align-content: center;
+    gap: 10px;
+}
+
+.player-grid-item {
+    text-align: center;
+    width: 80%;
+    height: 80%;
+    object-fit: contain;
+}
