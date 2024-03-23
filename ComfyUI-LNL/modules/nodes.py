@@ -53,8 +53,8 @@ class FrameSelector:
         frames_to_process = out_point - in_point + 1
         starting_frame = in_point - 1
 
-        current_image = self.__getImageBatch(full_video_path, 1, current_frame)
-        in_out_images = self.__getImageBatch(full_video_path, frames_to_process, starting_frame)
+        current_image = self.__getImageBatch(full_video_path, 1, current_frame - 1)
+        in_out_images = self.__getImageBatch(full_video_path, frames_to_process, starting_frame - 1)
 
         return (
             current_image,
