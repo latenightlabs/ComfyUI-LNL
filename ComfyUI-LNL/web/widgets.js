@@ -10,18 +10,7 @@ import { getBastePositionStyle } from "./styles.js";
 import { handleBasteMouseEvent } from "./eventHandlers.js";
 import { processVideoEntry } from "./utils.js";
 
-const PlayerControls = {
-    gotoStart: 0,
-    setInPoint: 1,
-    gotoInPoint: 2,
-    stepBackward: 3,
-    playPause: 4,
-    stepForward: 5,
-    gotoOutPoint: 6,
-    setOutPoint: 7,
-    gotoEnd: 8,
-};
-
+// Double slider widget
 function createDoubleSliderWidget(widgetName) {
     const doubleSliderWidget = {
         type: "double_slider",
@@ -43,6 +32,20 @@ function createDoubleSliderWidget(widgetName) {
     
     return doubleSliderWidget;
 }
+
+// Player controls widget
+const PlayerControls = {
+    gotoStart: 0,
+    setInPoint: 1,
+    gotoInPoint: 2,
+    stepBackward: 3,
+    playPause: 4,
+    stepForward: 5,
+    gotoOutPoint: 6,
+    setOutPoint: 7,
+    gotoEnd: 8,
+};
+
 
 function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
     const element = document.createElement("div");
@@ -117,6 +120,7 @@ function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
     return playerControlsWidget;
 }
 
+// Video player widget helpers
 function createLoaderOverlay(previewWidget) {
     previewWidget.playPauseOverlayEl = document.createElement("div");
     previewWidget.playPauseOverlayEl.style['position'] = "absolute";
@@ -130,7 +134,6 @@ function createLoaderOverlay(previewWidget) {
     previewWidget.playPauseOverlayEl.addEventListener('click', function () {
         previewWidget.playPauseTriggeredCallback?.call();
         if (!isVideoPlaying(previewWidget)) {
-            // Make sure to start playing from the start marker
             previewWidget.videoEl.play();
         } else {
             previewWidget.videoEl.pause();
@@ -161,6 +164,7 @@ function createLoaderOverlay(previewWidget) {
     previewWidget.loaderEl.appendChild(previewWidget.spinnerEl);
 }
 
+// Utility
 function updateSliderValues(widget, node, currentFrame, totalFrames) {
     widget.value.current = (currentFrame / totalFrames) * 100;
     widget.value.currentFrame = currentFrame;
@@ -193,6 +197,7 @@ function pauseVideoIfPlaying(previewWidget, playerControlsWidget) {
     previewWidget.videoEl.pause();
 }
 
+// Create widgets
 export async function createWidgets(nodeType) {
     const originalNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
