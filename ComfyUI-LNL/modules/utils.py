@@ -60,6 +60,9 @@ def lnl_cv_frame_generator(video, frame_load_cap, skip_first_frames, select_ever
 
             # if should not be selected, skip doing anything with frame
             if total_frames_evaluated%select_every_nth != 0:
+                frames_added += 1
+                if total_frame_count >= frame_load_cap + skip_first_frames:
+                    break
                 continue
 
             # opencv loads images in BGR format (yuck), so need to convert to RGB for ComfyUI use

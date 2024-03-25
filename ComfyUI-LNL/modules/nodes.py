@@ -25,8 +25,8 @@ class FrameSelector:
     CATEGORY = "LNL"
     FUNCTION = "get_specific_frame"
 
-    def __getImageBatch(self, full_video_path, frames_to_process, starting_frame):
-        generatedImages = lnl_cv_frame_generator(full_video_path, frames_to_process, starting_frame, 1)
+    def __getImageBatch(self, full_video_path, frames_to_process, select_every_nth_frame, starting_frame):
+        generatedImages = lnl_cv_frame_generator(full_video_path, frames_to_process, starting_frame, select_every_nth_frame)
         (width, height, target_frame_time) = next(generatedImages)
         width = int(width)
         height = int(height)
@@ -50,11 +50,13 @@ class FrameSelector:
         current_frame = prompt_inputs["in_out_point_slider"]["currentFrame"]
         total_frames = prompt_inputs["in_out_point_slider"]["totalFrames"]
 
+        select_every_nth_frame = prompt_inputs["select_every_nth_frame"]
+
         frames_to_process = out_point - in_point + 1
         starting_frame = in_point - 1
 
-        current_image = self.__getImageBatch(full_video_path, 1, current_frame - 1)
-        in_out_images = self.__getImageBatch(full_video_path, frames_to_process, starting_frame - 1)
+        current_image = self.__getImageBatch(full_video_path, 1, 1, current_frame - 1)
+        in_out_images = self.__getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame)
 
         return (
             current_image,

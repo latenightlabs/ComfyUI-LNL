@@ -513,6 +513,14 @@ export async function createWidgets(nodeType) {
         });
         this.outPointWidget = outPointWidget;
 
+        // Select every nth frame
+        const selectEveryNthFrameWidget = this.addWidget("number", "select_every_nth_frame", 1, (value) => {
+            const clampedValue = clamp(value, 1, doubleSliderWidget.value.totalFrames);
+            setTimeout(() => {
+                selectEveryNthFrameWidget.value = clampedValue;
+            }, 10);
+        }, { min: 1, step: 10, precision: 0 });
+
         // Make sure to reload video after refreshing
         setTimeout(() => previewWidget.updateSource(), 10);
 
