@@ -275,6 +275,7 @@ export async function createWidgets(nodeType) {
                     
                     doubleSliderWidget.value.startMarkerFrame = 1;
                     doubleSliderWidget.value.endMarkerFrame = jsonData.total_frames;
+                    doubleSliderWidget.value.frameRate = jsonData.frame_rate;
                     
                     that.inPointWidget.value = 1;
                     that.outPointWidget.value = jsonData.total_frames;
@@ -307,8 +308,23 @@ export async function createWidgets(nodeType) {
         previewWidget.videoEl.addEventListener("error", () => {
             previewWidget.aspectRatio = infiniteAR;
             previewWidget.loaderEl.style['visibility'] = "hidden";
-            updateSliderValues(doubleSliderWidget, that, 1, 1);
-            fitHeight(this);
+
+            setTimeout(() => {
+                previewWidget.value.params.frameDuration = 1;
+                previewWidget.value.params.totalFrames = 1;
+
+                that.inPointWidget.value = 1;
+                that.outPointWidget.value = 1;
+
+                doubleSliderWidget.value.startMarkerFrame = 1;
+                doubleSliderWidget.value.endMarkerFrame = 1;
+                doubleSliderWidget.value.frameRate = 1;
+
+                this.currentTime = 1;
+
+                updateSliderValues(doubleSliderWidget, that, 1, 1);
+                fitHeight(this);
+            }, 100);
         });
 
         previewWidget.updateSource = function () {

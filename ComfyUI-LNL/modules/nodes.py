@@ -3,7 +3,7 @@ import os
 import torch
 import numpy as np
 
-from .utils import lnl_cv_frame_generator
+from .utils import lnl_cv_frame_generator, lnl_get_audio, lnl_lazy_eval
 
 import folder_paths
 
@@ -19,8 +19,8 @@ class FrameSelector:
             },
         }
 
-    RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "INT", "INT",)
-    RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)",)
+    RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "INT", "INT", "INT", "VHS_AUDIO",)
+    RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)", "Frame rate", "audio",)
     OUTPUT_NODE = True
     CATEGORY = "LNL"
     FUNCTION = "get_specific_frame"
@@ -34,7 +34,7 @@ class FrameSelector:
         imageBatch = torch.from_numpy(np.fromiter(generatedImages, np.dtype((np.float32, (height, width, 3)))))
         if len(imageBatch) == 0:
             raise RuntimeError("No frames generated")
-        return imageBatch
+        return (imageBatch, target_frame_time)
 
     def get_specific_frame(
         self,
@@ -49,14 +49,20 @@ class FrameSelector:
         out_point = prompt_inputs["in_out_point_slider"]["endMarkerFrame"]
         current_frame = prompt_inputs["in_out_point_slider"]["currentFrame"]
         total_frames = prompt_inputs["in_out_point_slider"]["totalFrames"]
+        frame_rate = prompt_inputs["in_out_point_slider"]["frameRate"]
+        print(f"Frame rate: {frame_rate}")
+        print(f"in_out_point_slider: {prompt_inputs['in_out_point_slider']}")
 
         select_every_nth_frame = prompt_inputs["select_every_nth_frame"]
 
         frames_to_process = out_point - in_point + 1
         starting_frame = in_point - 1
 
-        current_image = self.__getImageBatch(full_video_path, 1, 1, current_frame - 1)
-        in_out_images = self.__getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame)
+        (current_image, _) = self.__getImageBatch(full_video_path, 1, 1, current_frame - 1)
+        (in_out_images, target_frame_time) = self.__getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame)
+
+        audio = lambda: lnl_get_audio(full_video_path, starting_frame * target_frame_time,
+                               frames_to_process*target_frame_time*select_every_nth_frame)
 
         return (
             current_image,
@@ -65,6 +71,8 @@ class FrameSelector:
             total_frames,
             current_frame - in_point + 1,
             current_frame,
+            frame_rate,
+            lnl_lazy_eval(audio),
         )
 
 NODE_CLASS_MAPPINGS = {
