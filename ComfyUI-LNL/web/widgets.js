@@ -63,6 +63,7 @@ function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
     playerControlsWidget.controlsEl.className = "player-grid-container";
     playerControlsWidget.parentEl.appendChild(playerControlsWidget.controlsEl);
 
+    // Images downloaded from Icons8 (https://icons8/com).
     const images = [
         lnlGetUrl("images/goto_start.png", import.meta.url),
         lnlGetUrl("images/set_in_point.png", import.meta.url),

@@ -32,8 +32,17 @@ Upload a video file using the provided upload functionality.
 Utilize the playback and editing controls to interact with your video.
 For detailed usage instructions, refer to the user_manual.pdf (if available) within the project directory.
 
-Contributing
+## Attributions
+This project uses parts of code and some ideas from the following repositories:
+[ComfyUI-Custom-Scripts](https://github.com/pythongosssss/ComfyUI-Custom-Scripts)
+[ComfyUI-VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite)
+Make sure to check them out, they both offer awesome tool suites!
+
+We also use icons for player controls supplied by [Icons8](https://icons8/com).
+
+
+# Contributing
 Contributions to the Load Video Node project are welcome. Please follow the contributing guidelines outlined in CONTRIBUTING.md (if available) for more information on how to contribute.
 
-License
+# License
 This project is licensed under the [LICENSE NAME] License - see the LICENSE file for details.
