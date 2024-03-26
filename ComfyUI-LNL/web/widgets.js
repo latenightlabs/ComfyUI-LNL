@@ -325,6 +325,11 @@ export async function createWidgets(nodeType) {
                 if (jsonData) {
                     previewWidget.loaderEl.style['visibility'] = "hidden";
 
+                    [that.inPointWidget, that.outPointWidget, that.currentFrameWidget].forEach((widget) => {
+                        widget.options.min = 1;
+                        widget.options.max = jsonData.total_frames;    
+                    });
+
                     // TODO: Remove redundancy when storing values.
                     if (!that.initialLoad) {
                         previewWidget.value.params.frameDuration = jsonData.frame_duration;
@@ -574,41 +579,24 @@ export async function createWidgets(nodeType) {
         };
 
         // Add In/Out point and frame widgets
-        const currentFrameWidget = this.addWidget("text", "current_frame", 1, (value) => {
-            const clampedValue = clamp(value, 1, doubleSliderWidget.value.totalFrames);
-            setTimeout(() => {
-                pauseVideoIfPlaying(previewWidget, playerControlsWidget);
-                currentFrameWidget.value = clampedValue;
-                previewWidget.videoEl.setCurrentFrame(clampedValue);
-            }, 10);
-        });
+        const currentFrameWidget = this.addWidget("number", "current_frame", 1, (value) => {
+            previewWidget.videoEl.setCurrentFrame(value);
+        }, { min: 1, max: 1, step: 10, precision: 0 });
         this.currentFrameWidget = currentFrameWidget;
 
-        const inPointWidget = this.addWidget("text", "in_point", 1, (value) => {
-            const clampedValue = clamp(value, 1, doubleSliderWidget.value.totalFrames);
-            setTimeout(() => {
-                inPointWidget.value = clampedValue;
-                previewWidget.videoEl.setInPoint(clampedValue);
-            }, 10);
-        });
+        const inPointWidget = this.addWidget("number", "in_point", 1, (value) => {
+            previewWidget.videoEl.setInPoint(value);
+        }, { min: 1, max: 1, step: 10, precision: 0 });
         this.inPointWidget = inPointWidget;
 
-        const outPointWidget = this.addWidget("text", "out_point", 1, (value) => {
-            const clampedValue = clamp(value, 1, doubleSliderWidget.value.totalFrames);
-            setTimeout(() => {
-                outPointWidget.value = clampedValue;
-                previewWidget.videoEl.setOutPoint(clampedValue);
-            }, 10);
-        });
+        const outPointWidget = this.addWidget("number", "out_point", 1, (value) => {
+            previewWidget.videoEl.setOutPoint(value);
+        }, { min: 1, max: 1, step: 10, precision: 0 });
         this.outPointWidget = outPointWidget;
 
         // Select every nth frame
-        const selectEveryNthFrameWidget = this.addWidget("number", "select_every_nth_frame", 1, (value) => {
-            const clampedValue = clamp(value, 1, doubleSliderWidget.value.totalFrames);
-            setTimeout(() => {
-                selectEveryNthFrameWidget.value = clampedValue;
-            }, 10);
-        }, { min: 1, step: 10, precision: 0 });
+        const selectEveryNthFrameWidget = this.addWidget("number", "select_every_nth_frame", 1, (value) => {}, { min: 1, step: 10, precision: 0 });
+        this.selectEveryNthFrameWidget = selectEveryNthFrameWidget;
 
         // Make sure to reload video after refreshing
         setTimeout(() => pathWidget.callback(pathWidget.value, true), 10);
