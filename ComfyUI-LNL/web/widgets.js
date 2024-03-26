@@ -212,6 +212,8 @@ function createUploadWidget(nodeType, pathWidget) {
                 }
                 const filename = fileInput.files[0].name;
                 const fullFilePath = `input/${filename}`;
+                pathWidget.options.values.push(fullFilePath);
+                pathWidget.options.values.sort();
                 pathWidget.value = fullFilePath;
                 if (pathWidget.callback) {
                     pathWidget.callback(fullFilePath)
@@ -243,14 +245,15 @@ export async function createWidgets(nodeType) {
         updateSliderValues(doubleSliderWidget, this, 1, 1);
 
         // Add path widget
-        const pathWidget = this.addWidget("text", "video_path", "videoPath/here.mp4", (value) => {
+        const pathWidget = this.widgets.find((w) => w.name === "video_path");
+        pathWidget.callback = (value) => {
             let extension_index = value.lastIndexOf(".");
             let extension = value.slice(extension_index+1);
             let format = "video"
             format += "/" + extension;
             let params = {filename : value, type: "input", format: format};
             this.updateParameters(params);
-        });
+        };
         this.pathWidget = pathWidget;
 
         // Add upload widget
@@ -577,7 +580,7 @@ export async function createWidgets(nodeType) {
         }, { min: 1, step: 10, precision: 0 });
 
         // Make sure to reload video after refreshing
-        setTimeout(() => previewWidget.updateSource(), 10);
+        setTimeout(() => pathWidget.callback(pathWidget.value), 10);
 
         // Cleanup
         this.serialize_widgets = true;

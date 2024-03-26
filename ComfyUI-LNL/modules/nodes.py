@@ -10,10 +10,20 @@ import folder_paths
 # TODO: Contribution ComfyUI-VideoHelperSuite (idea, output audio compatibility)
 class FrameSelector:
 
+    supported_video_extensions =  ['webm', 'mp4', 'mkv']
     @classmethod
     def INPUT_TYPES(s):
+        input_dir = folder_paths.get_input_directory()
+        files = []
+        for f in os.listdir(input_dir):
+            if os.path.isfile(os.path.join(input_dir, f)):
+                file_parts = f.split('.')
+                if len(file_parts) > 1 and (file_parts[-1] in FrameSelector.supported_video_extensions):
+                    files.append(f"input/{f}")
         return {
-            "required": {},
+            "required": {
+                "video_path": (sorted(files),),
+            },
             "hidden": {
                 "prompt": "PROMPT",
                 "unique_id": "UNIQUE_ID"
@@ -24,7 +34,7 @@ class FrameSelector:
     RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)", "Frame rate", "audio",)
     OUTPUT_NODE = True
     CATEGORY = "LNL"
-    FUNCTION = "get_specific_frame"
+    FUNCTION = "process_video"
 
     def __getImageBatch(self, full_video_path, frames_to_process, select_every_nth_frame, starting_frame):
         generatedImages = lnl_cv_frame_generator(full_video_path, frames_to_process, starting_frame, select_every_nth_frame)
@@ -37,13 +47,13 @@ class FrameSelector:
             raise RuntimeError("No frames generated")
         return (imageBatch, target_frame_time)
 
-    def get_specific_frame(
+    def process_video(
         self,
+        video_path,
         prompt=None,
         unique_id=None
     ):
         prompt_inputs = prompt[unique_id]["inputs"]
-        video_path = prompt_inputs["video_path"]
         full_video_path = os.path.join(folder_paths.base_path, video_path)
 
         in_point = prompt_inputs["in_out_point_slider"]["startMarkerFrame"]
@@ -51,8 +61,6 @@ class FrameSelector:
         current_frame = prompt_inputs["in_out_point_slider"]["currentFrame"]
         total_frames = prompt_inputs["in_out_point_slider"]["totalFrames"]
         frame_rate = prompt_inputs["in_out_point_slider"]["frameRate"]
-        print(f"Frame rate: {frame_rate}")
-        print(f"in_out_point_slider: {prompt_inputs['in_out_point_slider']}")
 
         select_every_nth_frame = prompt_inputs["select_every_nth_frame"]
 
