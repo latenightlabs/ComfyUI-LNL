@@ -185,7 +185,13 @@ function pauseVideoIfPlaying(previewWidget, playerControlsWidget) {
     previewWidget.videoEl.pause();
 }
 
-// TODO: Contribution ComfyUI-VideoHelperSuite
+
+/*
+Attribution: ComfyUI-VideoHelperSuite
+
+Portions of this code are adapted from GitHub repository `https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite`,
+which is licensed under the GNU General Public License version 3 (GPL-3.0):
+*/
 function createUploadWidget(nodeType, pathWidget) {
     const fileInput = document.createElement("input");
     Object.assign(fileInput, {
@@ -254,8 +260,13 @@ export async function createWidgets(nodeType) {
         const uploadWidget = createUploadWidget(this, pathWidget);
         this.uploadWidget = uploadWidget;
 
+        /*
+        Attribution: ComfyUI-VideoHelperSuite
+
+        Portions of this code are adapted from GitHub repository `https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite`,
+        which is licensed under the GNU General Public License version 3 (GPL-3.0):
+        */
         // Add video preview widget
-        // TODO: Contribution ComfyUI-VideoHelperSuite
         const infiniteAR = 1000;
         var element = document.createElement("div");
         var previewWidget = this.addDOMWidget("video_preview_widget", "preview", element, {
@@ -596,7 +607,12 @@ export async function createWidgets(nodeType) {
     };
 }
 
-// TODO: Contribution ComfyUI-VideoHelperSuite
+/*
+Attribution: ComfyUI-VideoHelperSuite
+
+Portions of this code are adapted from GitHub repository `https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite`,
+which is licensed under the GNU General Public License version 3 (GPL-3.0):
+*/
 function lnl_fitHeight(node) {
     node.setSize([node.size[0], node.computeSize([node.size[0], node.size[1]])[1]])
     node?.graph?.setDirtyCanvas(true);

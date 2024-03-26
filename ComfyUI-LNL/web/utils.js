@@ -18,7 +18,12 @@ export async function processVideoEntry(path, videoDuration) {
     return jsonData;
 }
 
-// TODO: Contribution ComfyUI-Custom-Scripts
+/*
+Attribution: ComfyUI-Custom-Scripts
+
+Portions of this code are adapted from GitHub repository `https://github.com/pythongosssss/ComfyUI-Custom-Scripts`,
+which is licensed under the MIT License:
+*/
 export function lnlAddStylesheet(url) {
     $el("link", {
         parent: document.head,
@@ -28,7 +33,12 @@ export function lnlAddStylesheet(url) {
     });
 }
 
-// TODO: Contribution ComfyUI-Custom-Scripts
+/*
+Attribution: ComfyUI-Custom-Scripts
+
+Portions of this code are adapted from GitHub repository `https://github.com/pythongosssss/ComfyUI-Custom-Scripts`,
+which is licensed under the MIT License:
+*/
 export function lnlGetUrl(path, baseUrl) {
     if (baseUrl) {
         return new URL(path, baseUrl).toString();
@@ -38,7 +48,12 @@ export function lnlGetUrl(path, baseUrl) {
     }
 }
 
-// TODO: Contribution ComfyUI-VideoHelperSuite
+/*
+Attribution: ComfyUI-VideoHelperSuite
+
+Portions of this code are adapted from GitHub repository `https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite`,
+which is licensed under the GNU General Public License version 3 (GPL-3.0):
+*/
 export async function lnlUploadFile(file) {
     //TODO: Add uploaded file to cache with Cache.put()?
     try {

@@ -7,7 +7,13 @@ from .utils import lnl_cv_frame_generator, lnl_get_audio, lnl_lazy_eval
 
 import folder_paths
 
-# TODO: Contribution ComfyUI-VideoHelperSuite (idea, output audio compatibility)
+"""
+Attribution: ComfyUI-VideoHelperSuite
+
+Portions of this code are adapted from GitHub repository `https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite`,
+which is licensed under the GNU General Public License version 3 (GPL-3.0):
+
+"""
 class FrameSelector:
 
     supported_video_extensions =  ['webm', 'mp4', 'mkv']

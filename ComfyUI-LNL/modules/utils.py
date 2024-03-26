@@ -4,7 +4,14 @@ import shutil
 import cv2
 import numpy as np
 
-# TODO: Contribution ComfyUI-VideoHelperSuite for the whole module
+"""
+Attribution: ComfyUI-VideoHelperSuite
+
+Portions of this code are adapted from GitHub repository `https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite`,
+which is licensed under the GNU General Public License version 3 (GPL-3.0):
+
+"""
+
 def __lnl_ffmpeg_suitability(path):
     try:
         version = subprocess.run([path, "-version"], check=True,
