@@ -11,6 +11,7 @@ import folder_paths
 class FrameSelector:
 
     supported_video_extensions =  ['webm', 'mp4', 'mkv']
+
     @classmethod
     def INPUT_TYPES(s):
         input_dir = folder_paths.get_input_directory()
