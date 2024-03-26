@@ -122,14 +122,7 @@ function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
 // Video player widget helpers
 function createLoaderOverlay(previewWidget) {
     previewWidget.playPauseOverlayEl = document.createElement("div");
-    previewWidget.playPauseOverlayEl.style['position'] = "absolute";
-    previewWidget.playPauseOverlayEl.style['display'] = "block";
-    previewWidget.playPauseOverlayEl.style['top'] = "0px";
-    previewWidget.playPauseOverlayEl.style['bottom'] = "4px";
-    previewWidget.playPauseOverlayEl.style['left'] = "0px";
-    previewWidget.playPauseOverlayEl.style['z-index'] = "100";
-    previewWidget.playPauseOverlayEl.style['width'] = "100%";
-    previewWidget.playPauseOverlayEl.style['background'] = "rgba(0, 0, 0, 0.0)";
+    previewWidget.playPauseOverlayEl.className = "video-loading-overlay-container";
     previewWidget.playPauseOverlayEl.addEventListener('click', function () {
         previewWidget.playPauseTriggeredCallback?.call();
         if (!isVideoPlaying(previewWidget)) {
@@ -141,24 +134,11 @@ function createLoaderOverlay(previewWidget) {
     previewWidget.parentEl.appendChild(previewWidget.playPauseOverlayEl);
 
     previewWidget.loaderEl = document.createElement("div");
-    previewWidget.loaderEl.style['position'] = "absolute";
-    previewWidget.loaderEl.style['display'] = "block";
-    previewWidget.loaderEl.style['top'] = "0px";
-    previewWidget.loaderEl.style['bottom'] = "4px";
-    previewWidget.loaderEl.style['left'] = "0px";
-    previewWidget.loaderEl.style['z-index'] = "9999";
-    previewWidget.loaderEl.style['width'] = "100%";
-    previewWidget.loaderEl.style['background'] = "rgba(0, 0, 0.0, 0.85)";
-    previewWidget.loaderEl.style['visibility'] = "hidden";
+    previewWidget.loaderEl.className = "video-loading-overlay";
     previewWidget.parentEl.appendChild(previewWidget.loaderEl);
 
     previewWidget.spinnerEl = document.createElement("div");
-    previewWidget.spinnerEl.style['position'] = "relative";
-    previewWidget.spinnerEl.style['text-align'] = "center";
-    previewWidget.spinnerEl.style['top'] = "50%";
-    previewWidget.spinnerEl.style['transform'] = "translateY(-50%)";
-    previewWidget.spinnerEl.style['font-family'] = "Tahoma, sans-serif";
-    previewWidget.spinnerEl.style['font-size'] = "120%";
+    previewWidget.spinnerEl.className = "video-loading-spinner";
     previewWidget.spinnerEl.innerHTML = createSpinner().outerHTML + "<br />Processing...";
     previewWidget.loaderEl.appendChild(previewWidget.spinnerEl);
 }
@@ -368,6 +348,9 @@ export async function createWidgets(nodeType) {
 
                         doubleSliderWidget.pointerIsDown = false;
                     });
+                    previewWidget.videoEl.addEventListener('ended', (event) => {
+                        setPlayIcon(that.playerControlsWidget);
+                    });                    
                     
                     if (!that.initialLoad) {
                         previewWidget.videoEl.play();

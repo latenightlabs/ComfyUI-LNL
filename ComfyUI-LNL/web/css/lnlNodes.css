@@ -18,3 +18,35 @@
     height: 80%;
     object-fit: contain;
 }
+
+.video-loading-overlay-container {
+    position: absolute;
+    display: block;
+    top: 0px;
+    bottom: 4px;
+    left: 0px;
+    z-index: 100;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.0);
+}
+
+.video-loading-overlay {
+    position: absolute;
+    display: block;
+    top: 0px;
+    bottom: 4px;
+    left: 0px;
+    z-index: 9999;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    visibility: hidden;
+}
+
+.video-loading-spinner {
+    position: relative;
+    text-align: center;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: Tahoma, sans-serif;
+    font-size: 120%;
+}
