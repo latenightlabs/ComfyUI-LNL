@@ -46,7 +46,6 @@ const PlayerControls = {
     gotoEnd: 8,
 };
 
-
 function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
     const element = document.createElement("div");
     const playerControlsWidget = hostNode.addDOMWidget(widgetName, "player_controls_widget", element, {
@@ -174,13 +173,22 @@ function updateSliderValues(widget, node, currentFrame, totalFrames) {
 }
 
 function updatePlayPauseControl(previewWidget, playerControlsWidget) {
-    let imageHTML = "";
-    if (!isVideoPlaying(previewWidget)) {
-        imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("images/pause.png", import.meta.url)}" />`;
+    isVideoPlaying(previewWidget)
+        ? setPlayIcon(playerControlsWidget)
+        : setPauseIcon(playerControlsWidget);
+}
 
-    } else {
-        imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("images/play.png", import.meta.url)}" />`;
-    }
+function setPlayIcon(playerControlsWidget) {
+    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("images/play.png", import.meta.url)}" />`;
+    assignPlayPauseControlImage(playerControlsWidget, imageHTML);
+}
+
+function setPauseIcon(playerControlsWidget) {
+    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("images/pause.png", import.meta.url)}" />`;
+    assignPlayPauseControlImage(playerControlsWidget, imageHTML);
+}
+
+function assignPlayPauseControlImage(playerControlsWidget, imageHTML) {
     playerControlsWidget.controlsEl.children[PlayerControls.playPause].innerHTML = imageHTML;
     playerControlsWidget.controlsEl.children[PlayerControls.playPause].style.opacity = 1.0;
 }
@@ -246,7 +254,13 @@ export async function createWidgets(nodeType) {
 
         // Add path widget
         const pathWidget = this.widgets.find((w) => w.name === "video_path");
-        pathWidget.callback = (value) => {
+        pathWidget.callback = (value, initialLoad) => {
+            if (typeof initialLoad === "boolean" && initialLoad === true) {
+                this.initialLoad = true;
+            }
+            else {
+                this.initialLoad = false;
+            }
             let extension_index = value.lastIndexOf(".");
             let extension = value.slice(extension_index+1);
             let format = "video"
@@ -312,36 +326,52 @@ export async function createWidgets(nodeType) {
                     previewWidget.loaderEl.style['visibility'] = "hidden";
 
                     // TODO: Remove redundancy when storing values.
-                    previewWidget.value.params.frameDuration = jsonData.frame_duration;
-                    previewWidget.value.params.totalFrames = jsonData.total_frames;
-                    
-                    doubleSliderWidget.value.startMarkerFrame = 1;
-                    doubleSliderWidget.value.endMarkerFrame = jsonData.total_frames;
-                    doubleSliderWidget.value.frameRate = jsonData.frame_rate;
-                    
-                    that.inPointWidget.value = 1;
-                    that.outPointWidget.value = jsonData.total_frames;
+                    if (!that.initialLoad) {
+                        previewWidget.value.params.frameDuration = jsonData.frame_duration;
+                        previewWidget.value.params.totalFrames = jsonData.total_frames;
+                        
+                        doubleSliderWidget.value.startMarkerFrame = 1;
+                        doubleSliderWidget.value.endMarkerFrame = jsonData.total_frames;
+                        doubleSliderWidget.value.frameRate = jsonData.frame_rate;
+                        
+                        that.inPointWidget.value = 1;
+                        that.outPointWidget.value = jsonData.total_frames;
 
-                    updateSliderValues(doubleSliderWidget, that, 1, jsonData.total_frames);
+                        updateSliderValues(doubleSliderWidget, that, 1, jsonData.total_frames);
+                    }
+                    else {
+                        previewWidget.videoEl.setCurrentFrame(that.currentFrameWidget.value);
+                        previewWidget.videoEl.setInPoint(that.inPointWidget.value);
+                        previewWidget.videoEl.setOutPoint(that.outPointWidget.value);
+                        updateSliderValues(doubleSliderWidget, that, that.currentFrameWidget.value, previewWidget.value.params.totalFrames);
+                    }
 
                     let lastTime = 0;
-                    previewWidget.videoEl.addEventListener('playing', (event) => {
-                        function checkFrame() {
-                            if (previewWidget.videoEl.currentTime !== lastTime) {
-                                lastTime = previewWidget.videoEl.currentTime;
-                                
-                                const currentTime = previewWidget.videoEl.currentTime;
-                                const currentFrame = Math.round(currentTime / jsonData.frame_duration);
-                                that.currentFrameWidget.value = currentFrame;
-                                updateSliderValues(doubleSliderWidget, that, currentFrame, jsonData.total_frames);
-                            }
-                            requestAnimationFrame(checkFrame);
+                    function checkFrame() {
+                        if (previewWidget.videoEl.currentTime !== lastTime) {
+                            lastTime = previewWidget.videoEl.currentTime;
+                            
+                            const currentTime = previewWidget.videoEl.currentTime;
+                            const currentFrame = Math.round(currentTime / jsonData.frame_duration);
+                            that.currentFrameWidget.value = currentFrame;
+                            updateSliderValues(doubleSliderWidget, that, currentFrame, jsonData.total_frames);
                         }
+                        requestAnimationFrame(checkFrame);
+                    }
+                    previewWidget.videoEl.addEventListener('playing', (event) => {
                         checkFrame();
 
                         doubleSliderWidget.pointerIsDown = false;
                     });
-                    previewWidget.videoEl.play();
+                    
+                    if (!that.initialLoad) {
+                        previewWidget.videoEl.play();
+                        setPauseIcon(that.playerControlsWidget);
+                    }
+                    else {
+                        checkFrame();
+                        setPlayIcon(that.playerControlsWidget);
+                    }
                 }
             }
             lnl_fitHeight(this);
@@ -531,6 +561,7 @@ export async function createWidgets(nodeType) {
                     break;
             }                
         });
+        this.playerControlsWidget = playerControlsWidget;
         previewWidget.playPauseTriggeredCallback = () => {
             updatePlayPauseControl(previewWidget, playerControlsWidget)
         };
@@ -580,7 +611,7 @@ export async function createWidgets(nodeType) {
         }, { min: 1, step: 10, precision: 0 });
 
         // Make sure to reload video after refreshing
-        setTimeout(() => pathWidget.callback(pathWidget.value), 10);
+        setTimeout(() => pathWidget.callback(pathWidget.value, true), 10);
 
         // Cleanup
         this.serialize_widgets = true;
