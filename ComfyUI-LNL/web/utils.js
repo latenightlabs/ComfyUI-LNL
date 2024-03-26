@@ -18,6 +18,7 @@ export async function processVideoEntry(path, videoDuration) {
     return jsonData;
 }
 
+// TODO: Contribution ComfyUI-Custom-Scripts
 export function lnlAddStylesheet(url) {
     $el("link", {
         parent: document.head,
@@ -27,12 +28,44 @@ export function lnlAddStylesheet(url) {
     });
 }
 
+// TODO: Contribution ComfyUI-Custom-Scripts
 export function lnlGetUrl(path, baseUrl) {
     if (baseUrl) {
         return new URL(path, baseUrl).toString();
     }
     else {
         return new URL("../" + path, import.meta.url).toString();
+    }
+}
+
+// TODO: Contribution ComfyUI-VideoHelperSuite
+export async function lnlUploadFile(file) {
+    //TODO: Add uploaded file to cache with Cache.put()?
+    try {
+        // Wrap file in formdata so it includes filename
+        const body = new FormData();
+        const i = file.webkitRelativePath.lastIndexOf('/');
+        const subfolder = file.webkitRelativePath.slice(0,i+1)
+        const new_file = new File([file], file.name, {
+            type: file.type,
+            lastModified: file.lastModified,
+        });
+        body.append("image", new_file);
+        if (i > 0) {
+            body.append("subfolder", subfolder);
+        }
+        const resp = await api.fetchApi("/upload/image", {
+            method: "POST",
+            body,
+        });
+
+        if (resp.status === 200) {
+            return resp.status
+        } else {
+            alert(resp.status + " - " + resp.statusText);
+        }
+    } catch (error) {
+        alert(error);
     }
 }
 

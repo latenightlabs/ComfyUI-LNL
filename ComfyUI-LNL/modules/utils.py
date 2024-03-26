@@ -4,6 +4,7 @@ import shutil
 import cv2
 import numpy as np
 
+# TODO: Contribution ComfyUI-VideoHelperSuite for the whole module
 def __lnl_ffmpeg_suitability(path):
     try:
         version = subprocess.run([path, "-version"], check=True,

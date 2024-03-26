@@ -7,6 +7,7 @@ from .utils import lnl_cv_frame_generator, lnl_get_audio, lnl_lazy_eval
 
 import folder_paths
 
+# TODO: Contribution ComfyUI-VideoHelperSuite (idea, output audio compatibility)
 class FrameSelector:
 
     @classmethod

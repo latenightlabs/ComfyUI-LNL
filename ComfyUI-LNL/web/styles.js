@@ -2,7 +2,7 @@
 
 import { clamp } from "./utils.js";
 
-export function getBastePositionStyle(ctx, widget_width, y, node, widget_height) {
+export function getLNLPositionStyle(ctx, widget_width, y, node, widget_height) {
     const margin = 10;
     const scale = ctx.getTransform().a;
     const showText = scale > 0.6;

@@ -5,9 +5,9 @@ import { api } from "../../../scripts/api.js";
 import { $el } from "../../../scripts/ui.js";
 import { createSpinner } from "../../../scripts/ui/spinner.js";
 
-import { clamp, lnlGetUrl } from "./utils.js";
-import { getBastePositionStyle } from "./styles.js";
-import { handleBasteMouseEvent } from "./eventHandlers.js";
+import { clamp, lnlGetUrl, lnlUploadFile } from "./utils.js";
+import { getLNLPositionStyle } from "./styles.js";
+import { handleLNLMouseEvent } from "./eventHandlers.js";
 import { processVideoEntry } from "./utils.js";
 
 // Double slider widget
@@ -19,13 +19,13 @@ function createDoubleSliderWidget(widgetName) {
         value: { current: 0 , startMarkerFrame: 0, endMarkerFrame: 100, currentFrame: 1, totalFrames: 1 },
         marker: true,
         draw(ctx, node, widget_width, y, widget_height) { 
-            Object.assign(this.inputEl.style, getBastePositionStyle(ctx, widget_width, y, node, widget_height));
+            Object.assign(this.inputEl.style, getLNLPositionStyle(ctx, widget_width, y, node, widget_height));
         },
         onWidgetChanged(widget_name, new_value, old_value, widget) {
             console.log(`Widget ${widget_name} changed from ${old_value} to ${new_value}`);
         },
         mouse(event, pos, node) {
-            return handleBasteMouseEvent(event, pos, node, this.positionUpdatedCallback);
+            return handleLNLMouseEvent(event, pos, node, this.positionUpdatedCallback);
         },
     };
     doubleSliderWidget.inputEl = $el("doubleSliderWidget", { src: null });
@@ -197,6 +197,39 @@ function pauseVideoIfPlaying(previewWidget, playerControlsWidget) {
     previewWidget.videoEl.pause();
 }
 
+// TODO: Contribution ComfyUI-VideoHelperSuite
+function createUploadWidget(nodeType, pathWidget) {
+    const fileInput = document.createElement("input");
+    Object.assign(fileInput, {
+        type: "file",
+        accept: "video/webm,video/mp4,video/mkv",
+        style: "display: none",
+        onchange: async () => {
+            if (fileInput.files.length) {
+                if (await lnlUploadFile(fileInput.files[0]) != 200) {
+                    //upload failed and file can not be added to options
+                    return;
+                }
+                const filename = fileInput.files[0].name;
+                const fullFilePath = `input/${filename}`;
+                pathWidget.value = fullFilePath;
+                if (pathWidget.callback) {
+                    pathWidget.callback(fullFilePath)
+                }
+            }
+        },
+    });
+    document.body.append(fileInput);
+    let uploadWidget = nodeType.addWidget("button", "choose video to upload", "image", () => {
+        //clear the active click event
+        app.canvas.node_widget = null
+
+        fileInput.click();
+    });
+    uploadWidget.options.serialize = false;
+    return uploadWidget;
+}
+
 // Create widgets
 export async function createWidgets(nodeType) {
     const originalNodeCreated = nodeType.prototype.onNodeCreated;
@@ -220,7 +253,12 @@ export async function createWidgets(nodeType) {
         });
         this.pathWidget = pathWidget;
 
+        // Add upload widget
+        const uploadWidget = createUploadWidget(this, pathWidget);
+        this.uploadWidget = uploadWidget;
+
         // Add video preview widget
+        // TODO: Contribution ComfyUI-VideoHelperSuite
         const infiniteAR = 1000;
         var element = document.createElement("div");
         var previewWidget = this.addDOMWidget("video_preview_widget", "preview", element, {
@@ -269,7 +307,8 @@ export async function createWidgets(nodeType) {
                 const jsonData = await processVideoEntry(params.filename, previewWidget.videoEl.duration);
                 if (jsonData) {
                     previewWidget.loaderEl.style['visibility'] = "hidden";
-                    
+
+                    // TODO: Remove redundancy when storing values.
                     previewWidget.value.params.frameDuration = jsonData.frame_duration;
                     previewWidget.value.params.totalFrames = jsonData.total_frames;
                     
@@ -302,7 +341,7 @@ export async function createWidgets(nodeType) {
                     previewWidget.videoEl.play();
                 }
             }
-            fitHeight(this);
+            lnl_fitHeight(this);
         });
         
         previewWidget.videoEl.addEventListener("error", () => {
@@ -323,7 +362,7 @@ export async function createWidgets(nodeType) {
                 this.currentTime = 1;
 
                 updateSliderValues(doubleSliderWidget, that, 1, 1);
-                fitHeight(this);
+                lnl_fitHeight(this);
             }, 100);
         });
 
@@ -552,7 +591,8 @@ export async function createWidgets(nodeType) {
     };
 }
 
-function fitHeight(node) {
+// TODO: Contribution ComfyUI-VideoHelperSuite
+function lnl_fitHeight(node) {
     node.setSize([node.size[0], node.computeSize([node.size[0], node.size[1]])[1]])
     node?.graph?.setDirtyCanvas(true);
 }

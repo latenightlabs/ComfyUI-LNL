@@ -2,10 +2,9 @@
 
 import { app } from "../../scripts/app.js"; // For LiteGraph
 
-export function handleBasteMouseEvent(event, pos, node, positionUpdatedCallback) {
+export function handleLNLMouseEvent(event, pos, node, positionUpdatedCallback) {
     const width = node.size[0];
 
-    let dirty_canvas = false;
     for (var i = 0; i < node.widgets.length; ++i) {
         const w = node.widgets[i];
         const widget_width = (w.width || width) - 2*w.width_margin;
@@ -27,11 +26,10 @@ export function handleBasteMouseEvent(event, pos, node, positionUpdatedCallback)
                         positionUpdatedCallback(w.value.current);
                     }, 20);
                 }
-                // dirty_canvas = true;
                 break;
             default:
                 break;
         }
     }
-    return dirty_canvas;
+    return false;
 }
