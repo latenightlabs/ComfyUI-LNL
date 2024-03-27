@@ -322,7 +322,6 @@ export async function createWidgets(nodeType) {
                         widget.options.max = jsonData.total_frames;    
                     });
 
-                    // TODO: Remove redundancy when storing values.
                     if (!that.initialLoad) {
                         previewWidget.value.params.frameDuration = jsonData.frame_duration;
                         previewWidget.value.params.totalFrames = jsonData.total_frames;
