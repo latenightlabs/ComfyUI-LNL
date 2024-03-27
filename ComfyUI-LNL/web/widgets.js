@@ -11,7 +11,7 @@ import { handleLNLMouseEvent } from "./eventHandlers.js";
 import { processVideoEntry } from "./utils.js";
 
 // Double slider widget
-function createDoubleSliderWidget(widgetName) {
+function createDoubleSliderWidget(hostNode, widgetName) {
     const doubleSliderWidget = {
         type: "double_slider",
         name: widgetName,
@@ -29,6 +29,12 @@ function createDoubleSliderWidget(widgetName) {
         },
     };
     doubleSliderWidget.inputEl = $el("doubleSliderWidget", { src: null });
+    doubleSliderWidget.positionUpdatedCallback = (value) => {
+        pauseVideoIfPlaying(hostNode.previewWidget, hostNode.playerControlsWidget);
+        const frameAtValue = hostNode.previewWidget.videoEl.getFrameForNValue(value);
+        const clampedValue = clamp(frameAtValue, 1, doubleSliderWidget.value.totalFrames);
+        hostNode.previewWidget.videoEl.setCurrentFrame(clampedValue);
+    };    
     
     return doubleSliderWidget;
 }
@@ -120,7 +126,263 @@ function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
     return playerControlsWidget;
 }
 
-// Video player widget helpers
+// Video preview widget
+function createVideoPreviewWidget(hostNode) {
+    const infiniteAR = 1000;
+    const element = document.createElement("div");
+    const previewWidget = hostNode.addDOMWidget("video_preview_widget", "preview", element, {
+        serialize: false,
+        hideOnZoom: false,
+        getValue() {
+            return element.value;
+        },
+        setValue(v) {
+            element.value = v;
+        },
+    });
+
+    previewWidget.computeSize = function (width) {
+        if (this.aspectRatio && !this.parentEl.hidden) {
+            let height = (hostNode.size[0] - 20) / this.aspectRatio + 10;
+            if (!(height > 0)) {
+                height = 0;
+            }
+            this.computedHeight = height + 10;
+            return [width, height];
+        }
+        return [width, -4];
+    }
+    previewWidget.aspectRatio = infiniteAR;
+    previewWidget.value = { hidden: false, paused: false, params: {} }
+    previewWidget.parentEl = document.createElement("div");
+    previewWidget.parentEl.style['position'] = "relative";
+    previewWidget.parentEl.style['width'] = "100%"
+    element.appendChild(previewWidget.parentEl);
+    previewWidget.videoEl = document.createElement("video");
+    previewWidget.videoEl.controls = false;
+    previewWidget.videoEl.loop = false;
+    previewWidget.videoEl.muted = true;
+    previewWidget.videoEl.style['width'] = "100%"
+    previewWidget.videoEl.style['pointer-events'] = "none"
+
+    previewWidget.videoEl.addEventListener("loadedmetadata", async () => {
+        previewWidget.aspectRatio = previewWidget.videoEl.videoWidth / previewWidget.videoEl.videoHeight;
+        previewWidget.loaderEl.style['visibility'] = "visible";
+
+        let params = {}
+        Object.assign(params, previewWidget.value.params);
+        if (params.filename) {
+            const jsonData = await processVideoEntry(params.filename, previewWidget.videoEl.duration);
+            if (jsonData) {
+                previewWidget.loaderEl.style['visibility'] = "hidden";
+
+                [hostNode.inPointWidget, hostNode.outPointWidget, hostNode.currentFrameWidget].forEach((widget) => {
+                    widget.options.min = 1;
+                    widget.options.max = jsonData.total_frames;    
+                });
+
+                const componentCreated = hostNode.componentCreated;
+                const componentLoadedOrRefreshed = hostNode.currentFrameWidget.value != -1;
+                previewWidget.value.params.frameDuration = jsonData.frame_duration;
+                previewWidget.value.params.totalFrames = jsonData.total_frames;
+                hostNode.doubleSliderWidget.value.frameRate = jsonData.frame_rate;
+                if (!componentCreated) {
+                    hostNode.doubleSliderWidget.value.startMarkerFrame = 1;
+                    hostNode.doubleSliderWidget.value.endMarkerFrame = jsonData.total_frames;
+                    
+                    hostNode.inPointWidget.value = 1;
+                    hostNode.outPointWidget.value = jsonData.total_frames;
+
+                    updateSliderValues(hostNode.doubleSliderWidget, hostNode, 1, jsonData.total_frames);
+                }
+                else {
+                    if (!componentLoadedOrRefreshed) {
+                        // Component is created from scratch, not loaded or refreshed
+                        hostNode.currentFrameWidget.value = hostNode.currentFrameWidget.options.min;
+                        hostNode.inPointWidget.value = hostNode.inPointWidget.options.min;
+                        hostNode.outPointWidget.value = hostNode.outPointWidget.options.max;
+                    }
+
+                    previewWidget.videoEl.setCurrentFrame(hostNode.currentFrameWidget.value);
+                    previewWidget.videoEl.setInPoint(hostNode.inPointWidget.value);
+                    previewWidget.videoEl.setOutPoint(hostNode.outPointWidget.value);
+                    updateSliderValues(hostNode.doubleSliderWidget, hostNode, hostNode.currentFrameWidget.value, previewWidget.value.params.totalFrames);
+                }
+
+                let lastTime = 0;
+                function checkFrame() {
+                    if (previewWidget.videoEl.currentTime !== lastTime) {
+                        lastTime = previewWidget.videoEl.currentTime;
+                        
+                        const currentTime = previewWidget.videoEl.currentTime;
+                        const currentFrame = Math.round(currentTime / jsonData.frame_duration);
+                        hostNode.currentFrameWidget.value = currentFrame;
+                        updateSliderValues(hostNode.doubleSliderWidget, hostNode, currentFrame, jsonData.total_frames);
+                    }
+                    requestAnimationFrame(checkFrame);
+                }
+                previewWidget.videoEl.addEventListener('playing', (event) => {
+                    checkFrame();
+
+                    hostNode.doubleSliderWidget.pointerIsDown = false;
+                });
+                previewWidget.videoEl.addEventListener('ended', (event) => {
+                    setPlayIcon(hostNode.playerControlsWidget);
+                });                    
+                
+                if (!componentCreated || (componentCreated && !componentLoadedOrRefreshed)) {
+                    previewWidget.videoEl.play();
+                    setPauseIcon(hostNode.playerControlsWidget);
+                }
+                else {
+                    checkFrame();
+                    setPlayIcon(hostNode.playerControlsWidget);
+                }
+            }
+        }
+        lnl_fitHeight(hostNode);
+    });
+    
+    previewWidget.videoEl.addEventListener("error", () => {
+        previewWidget.aspectRatio = infiniteAR;
+        previewWidget.loaderEl.style['visibility'] = "hidden";
+
+        setTimeout(() => {
+            previewWidget.value.params.frameDuration = 1;
+            previewWidget.value.params.totalFrames = 1;
+
+            hostNode.currentFrameWidget.value = 1;
+            hostNode.inPointWidget.value = 1;
+            hostNode.outPointWidget.value = 1;
+
+            hostNode.doubleSliderWidget.value.startMarkerFrame = 1;
+            hostNode.doubleSliderWidget.value.endMarkerFrame = 1;
+            hostNode.doubleSliderWidget.value.frameRate = 1;
+
+            if (this) {
+                this.currentTime = 1;
+            }
+
+            updateSliderValues(hostNode.doubleSliderWidget, hostNode, 1, 1);
+            lnl_fitHeight(hostNode);
+        }, 100);
+    });
+
+    previewWidget.updateSource = function () {
+        let params = {}
+        Object.assign(params, this.value.params);
+        this.parentEl.hidden = this.value.hidden;
+        this.videoEl.autoplay = false;
+        let target_width = 256
+        if (element.style?.width) {
+            target_width = element.style.width.slice(0, -2) * 2;
+        }
+        if (!params.force_size || params.force_size.includes("?") || params.force_size == "Disabled") {
+            params.force_size = target_width + "x?"
+        } else {
+            let size = params.force_size.split("x")
+            let ar = parseInt(size[0]) / parseInt(size[1])
+            params.force_size = target_width + "x" + (target_width / ar)
+        }
+        previewWidget.videoEl.src = api.apiURL('/view?' + new URLSearchParams(params));
+        this.videoEl.hidden = false;
+    }
+
+    previewWidget.updateParameters = (params) => {
+        Object.assign(previewWidget.value.params, params)
+        previewWidget.updateSource();
+    };      
+    previewWidget.parentEl.appendChild(previewWidget.videoEl);
+
+    previewWidget.videoEl.getFrameForNValue = function (nvalue) {
+        const frameAtValue = Math.round(nvalue * previewWidget.value.params.totalFrames / 100);
+        return frameAtValue;
+    };
+
+    previewWidget.videoEl.getCurrentFrame = function () {
+        const currentFrame = Math.round(this.currentTime / previewWidget.value.params.frameDuration);
+        return currentFrame;
+    };
+    previewWidget.videoEl.getStartFrame = function () {
+        const startFrame = 1;
+        return startFrame;
+    };
+    previewWidget.videoEl.getInPointFrame = function () {
+        const inFrame = hostNode.doubleSliderWidget.value.startMarkerFrame;
+        return inFrame;
+    };
+    previewWidget.videoEl.getOutPointFrame = function () {
+        const outFrame = hostNode.doubleSliderWidget.value.endMarkerFrame;
+        return outFrame;
+    };
+    previewWidget.videoEl.getEndFrame = function () {
+        const endFrame = previewWidget.value.params.totalFrames;
+        return endFrame;
+    };
+    previewWidget.videoEl.setCurrentFrame = function (frame) {
+        const clampedFrame = clamp(frame, 1, hostNode.doubleSliderWidget.value.totalFrames);
+        this.currentTime = clampedFrame * previewWidget.value.params.frameDuration;
+        hostNode.currentFrameWidget.value = clampedFrame;
+    };
+    previewWidget.videoEl.advanceOneFrame = function () {
+        const endFrame = this.getEndFrame();
+        const nextFrame = Math.min(this.getCurrentFrame() + 1, endFrame);
+        this.setCurrentFrame(nextFrame);
+    };
+    previewWidget.videoEl.regressOneFrame = function () {
+        const startFrame = this.getStartFrame();
+        const previousFrame = Math.max(this.getCurrentFrame() - 1, startFrame);
+        this.setCurrentFrame(previousFrame);
+    };
+    previewWidget.videoEl.gotoInPoint = function () {
+        const inFrame = this.getInPointFrame();
+        this.setCurrentFrame(inFrame);
+    };
+    previewWidget.videoEl.gotoOutPoint = function () {
+        const outFrame = this.getOutPointFrame();
+        this.setCurrentFrame(outFrame);
+    };
+    previewWidget.videoEl.gotoStart = function () {
+        const startFrame = this.getStartFrame();
+        this.setCurrentFrame(startFrame);
+    };
+    previewWidget.videoEl.gotoEnd = function () {
+        const endFrame = this.getEndFrame();
+        this.setCurrentFrame(endFrame);
+    };
+    previewWidget.videoEl.setInPoint = function (value) {
+        const currentFrame = this.getCurrentFrame();
+        const valueToSet = value ? value : currentFrame;
+        hostNode.doubleSliderWidget.value.startMarkerFrame = valueToSet;
+        hostNode.inPointWidget.value = valueToSet;
+
+        const outPointFrame = this.getOutPointFrame();
+        if (valueToSet > outPointFrame) {
+            hostNode.doubleSliderWidget.value.endMarkerFrame = this.getEndFrame();
+            hostNode.outPointWidget.value = this.getEndFrame();
+        }
+    };
+    previewWidget.videoEl.setOutPoint = function (value) {
+        const currentFrame = this.getCurrentFrame();
+        const valueToSet = value ? value : currentFrame;
+        hostNode.doubleSliderWidget.value.endMarkerFrame = valueToSet;
+        hostNode.outPointWidget.value = valueToSet;
+
+        const inPointFrame = this.getInPointFrame();
+        if (valueToSet < inPointFrame) {
+            hostNode.doubleSliderWidget.value.startMarkerFrame = this.getStartFrame();
+            hostNode.inPointWidget.value = this.getStartFrame();
+        }
+    };
+    previewWidget.playPauseTriggeredCallback = () => {
+        updatePlayPauseControl(previewWidget, hostNode.playerControlsWidget)
+    };
+
+    createLoaderOverlay(previewWidget);
+    return previewWidget;
+}
+
+// Video preview widget helpers
 function createLoaderOverlay(previewWidget) {
     previewWidget.playPauseOverlayEl = document.createElement("div");
     previewWidget.playPauseOverlayEl.className = "video-loading-overlay-container";
@@ -193,7 +455,7 @@ Attribution: ComfyUI-VideoHelperSuite
 Portions of this code are adapted from GitHub repository `https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite`,
 which is licensed under the GNU General Public License version 3 (GPL-3.0):
 */
-function createUploadWidget(nodeType, pathWidget) {
+function createUploadWidget(hostNode, pathWidget) {
     const fileInput = document.createElement("input");
     Object.assign(fileInput, {
         type: "file",
@@ -217,7 +479,7 @@ function createUploadWidget(nodeType, pathWidget) {
         },
     });
     document.body.append(fileInput);
-    let uploadWidget = nodeType.addWidget("button", "choose video to upload", "image", () => {
+    let uploadWidget = hostNode.addWidget("button", "choose video to upload", "image", () => {
         //clear the active click event
         app.canvas.node_widget = null
 
@@ -236,24 +498,30 @@ export async function createWidgets(nodeType) {
         const that = this;
 
         // Create double slider widget
-        const doubleSliderWidget = createDoubleSliderWidget("in_out_point_slider");
+        const doubleSliderWidget = createDoubleSliderWidget(this, "in_out_point_slider");
+        this.doubleSliderWidget = doubleSliderWidget;
         updateSliderValues(doubleSliderWidget, this, 1, 1);
 
         // Add path widget
         const pathWidget = this.widgets.find((w) => w.name === "video_path");
-        pathWidget.callback = (value, initialLoad) => {
-            if (typeof initialLoad === "boolean" && initialLoad === true) {
-                this.initialLoad = true;
+        pathWidget.callback = (value, componentCreated) => {
+            if (typeof componentCreated === "boolean" && componentCreated === true) {
+                this.componentCreated = true;
             }
             else {
-                this.initialLoad = false;
+                this.componentCreated = false;
             }
+            if (!value) {
+                that.previewWidget.updateParameters({});
+                return;
+            }
+            
             let extension_index = value.lastIndexOf(".");
             let extension = value.slice(extension_index+1);
             let format = "video"
             format += "/" + extension;
             let params = {filename : value, type: "input", format: format};
-            this.updateParameters(params);
+            that.previewWidget.updateParameters(params);
         };
         this.pathWidget = pathWidget;
 
@@ -268,246 +536,8 @@ export async function createWidgets(nodeType) {
         which is licensed under the GNU General Public License version 3 (GPL-3.0):
         */
         // Add video preview widget
-        const infiniteAR = 1000;
-        var element = document.createElement("div");
-        var previewWidget = this.addDOMWidget("video_preview_widget", "preview", element, {
-            serialize: false,
-            hideOnZoom: false,
-            getValue() {
-                return element.value;
-            },
-            setValue(v) {
-                element.value = v;
-            },
-        });
+        const previewWidget = createVideoPreviewWidget(this);
         this.previewWidget = previewWidget;
-
-        previewWidget.computeSize = function (width) {
-            if (this.aspectRatio && !this.parentEl.hidden) {
-                let height = (that.size[0] - 20) / this.aspectRatio + 10;
-                if (!(height > 0)) {
-                    height = 0;
-                }
-                this.computedHeight = height + 10;
-                return [width, height];
-            }
-            return [width, -4];
-        }
-        previewWidget.aspectRatio = infiniteAR;
-        previewWidget.value = { hidden: false, paused: false, params: {} }
-        previewWidget.parentEl = document.createElement("div");
-        previewWidget.parentEl.style['position'] = "relative";
-        previewWidget.parentEl.style['width'] = "100%"
-        element.appendChild(previewWidget.parentEl);
-        previewWidget.videoEl = document.createElement("video");
-        previewWidget.videoEl.controls = false;
-        previewWidget.videoEl.loop = false;
-        previewWidget.videoEl.muted = true;
-        previewWidget.videoEl.style['width'] = "100%"
-        previewWidget.videoEl.style['pointer-events'] = "none"
-
-        previewWidget.videoEl.addEventListener("loadedmetadata", async () => {
-            previewWidget.aspectRatio = previewWidget.videoEl.videoWidth / previewWidget.videoEl.videoHeight;
-            previewWidget.loaderEl.style['visibility'] = "visible";
-
-            let params = {}
-            Object.assign(params, previewWidget.value.params);
-            if (params.filename) {
-                const jsonData = await processVideoEntry(params.filename, previewWidget.videoEl.duration);
-                if (jsonData) {
-                    previewWidget.loaderEl.style['visibility'] = "hidden";
-
-                    [that.inPointWidget, that.outPointWidget, that.currentFrameWidget].forEach((widget) => {
-                        widget.options.min = 1;
-                        widget.options.max = jsonData.total_frames;    
-                    });
-
-                    if (!that.initialLoad) {
-                        previewWidget.value.params.frameDuration = jsonData.frame_duration;
-                        previewWidget.value.params.totalFrames = jsonData.total_frames;
-                        
-                        doubleSliderWidget.value.startMarkerFrame = 1;
-                        doubleSliderWidget.value.endMarkerFrame = jsonData.total_frames;
-                        doubleSliderWidget.value.frameRate = jsonData.frame_rate;
-                        
-                        that.inPointWidget.value = 1;
-                        that.outPointWidget.value = jsonData.total_frames;
-
-                        updateSliderValues(doubleSliderWidget, that, 1, jsonData.total_frames);
-                    }
-                    else {
-                        previewWidget.videoEl.setCurrentFrame(that.currentFrameWidget.value);
-                        previewWidget.videoEl.setInPoint(that.inPointWidget.value);
-                        previewWidget.videoEl.setOutPoint(that.outPointWidget.value);
-                        updateSliderValues(doubleSliderWidget, that, that.currentFrameWidget.value, previewWidget.value.params.totalFrames);
-                    }
-
-                    let lastTime = 0;
-                    function checkFrame() {
-                        if (previewWidget.videoEl.currentTime !== lastTime) {
-                            lastTime = previewWidget.videoEl.currentTime;
-                            
-                            const currentTime = previewWidget.videoEl.currentTime;
-                            const currentFrame = Math.round(currentTime / jsonData.frame_duration);
-                            that.currentFrameWidget.value = currentFrame;
-                            updateSliderValues(doubleSliderWidget, that, currentFrame, jsonData.total_frames);
-                        }
-                        requestAnimationFrame(checkFrame);
-                    }
-                    previewWidget.videoEl.addEventListener('playing', (event) => {
-                        checkFrame();
-
-                        doubleSliderWidget.pointerIsDown = false;
-                    });
-                    previewWidget.videoEl.addEventListener('ended', (event) => {
-                        setPlayIcon(that.playerControlsWidget);
-                    });                    
-                    
-                    if (!that.initialLoad) {
-                        previewWidget.videoEl.play();
-                        setPauseIcon(that.playerControlsWidget);
-                    }
-                    else {
-                        checkFrame();
-                        setPlayIcon(that.playerControlsWidget);
-                    }
-                }
-            }
-            lnl_fitHeight(this);
-        });
-        
-        previewWidget.videoEl.addEventListener("error", () => {
-            previewWidget.aspectRatio = infiniteAR;
-            previewWidget.loaderEl.style['visibility'] = "hidden";
-
-            setTimeout(() => {
-                previewWidget.value.params.frameDuration = 1;
-                previewWidget.value.params.totalFrames = 1;
-
-                that.inPointWidget.value = 1;
-                that.outPointWidget.value = 1;
-
-                doubleSliderWidget.value.startMarkerFrame = 1;
-                doubleSliderWidget.value.endMarkerFrame = 1;
-                doubleSliderWidget.value.frameRate = 1;
-
-                this.currentTime = 1;
-
-                updateSliderValues(doubleSliderWidget, that, 1, 1);
-                lnl_fitHeight(this);
-            }, 100);
-        });
-
-        previewWidget.updateSource = function () {
-            let params = {}
-            Object.assign(params, this.value.params);
-            this.parentEl.hidden = this.value.hidden;
-            this.videoEl.autoplay = false;
-            let target_width = 256
-            if (element.style?.width) {
-                target_width = element.style.width.slice(0, -2) * 2;
-            }
-            if (!params.force_size || params.force_size.includes("?") || params.force_size == "Disabled") {
-                params.force_size = target_width + "x?"
-            } else {
-                let size = params.force_size.split("x")
-                let ar = parseInt(size[0]) / parseInt(size[1])
-                params.force_size = target_width + "x" + (target_width / ar)
-            }
-            previewWidget.videoEl.src = api.apiURL('/view?' + new URLSearchParams(params));
-            this.videoEl.hidden = false;
-        }
-
-        // Move to previewWidget
-        this.updateParameters = (params) => {
-            Object.assign(previewWidget.value.params, params)
-            previewWidget.updateSource();
-        };      
-        previewWidget.parentEl.appendChild(previewWidget.videoEl);
-
-        previewWidget.videoEl.getFrameForNValue = function (nvalue) {
-            const frameAtValue = Math.round(nvalue * previewWidget.value.params.totalFrames / 100);
-            return frameAtValue;
-        };
-
-        previewWidget.videoEl.getCurrentFrame = function () {
-            const currentFrame = Math.round(this.currentTime / previewWidget.value.params.frameDuration);
-            return currentFrame;
-        };
-        previewWidget.videoEl.getStartFrame = function () {
-            const startFrame = 1;
-            return startFrame;
-        };
-        previewWidget.videoEl.getInPointFrame = function () {
-            const inFrame = doubleSliderWidget.value.startMarkerFrame;
-            return inFrame;
-        };
-        previewWidget.videoEl.getOutPointFrame = function () {
-            const outFrame = doubleSliderWidget.value.endMarkerFrame;
-            return outFrame;
-        };
-        previewWidget.videoEl.getEndFrame = function () {
-            const endFrame = previewWidget.value.params.totalFrames;
-            return endFrame;
-        };
-        previewWidget.videoEl.setCurrentFrame = function (frame) {
-            const clampedFrame = clamp(frame, 1, doubleSliderWidget.value.totalFrames);
-            this.currentTime = clampedFrame * previewWidget.value.params.frameDuration;
-            that.currentFrameWidget.value = clampedFrame;
-        };
-        previewWidget.videoEl.advanceOneFrame = function () {
-            const endFrame = this.getEndFrame();
-            const nextFrame = Math.min(this.getCurrentFrame() + 1, endFrame);
-            this.setCurrentFrame(nextFrame);
-        };
-        previewWidget.videoEl.regressOneFrame = function () {
-            const startFrame = this.getStartFrame();
-            const previousFrame = Math.max(this.getCurrentFrame() - 1, startFrame);
-            this.setCurrentFrame(previousFrame);
-        };
-        previewWidget.videoEl.gotoInPoint = function () {
-            const inFrame = this.getInPointFrame();
-            this.setCurrentFrame(inFrame);
-        };
-        previewWidget.videoEl.gotoOutPoint = function () {
-            const outFrame = this.getOutPointFrame();
-            this.setCurrentFrame(outFrame);
-        };
-        previewWidget.videoEl.gotoStart = function () {
-            const startFrame = this.getStartFrame();
-            this.setCurrentFrame(startFrame);
-        };
-        previewWidget.videoEl.gotoEnd = function () {
-            const endFrame = this.getEndFrame();
-            this.setCurrentFrame(endFrame);
-        };
-        previewWidget.videoEl.setInPoint = function (value) {
-            const currentFrame = this.getCurrentFrame();
-            const valueToSet = value ? value : currentFrame;
-            doubleSliderWidget.value.startMarkerFrame = valueToSet;
-            that.inPointWidget.value = valueToSet;
-
-            const outPointFrame = this.getOutPointFrame();
-            if (valueToSet > outPointFrame) {
-                doubleSliderWidget.value.endMarkerFrame = this.getEndFrame();
-                that.outPointWidget.value = this.getEndFrame();
-            }
-        };
-        previewWidget.videoEl.setOutPoint = function (value) {
-            const currentFrame = this.getCurrentFrame();
-            const valueToSet = value ? value : currentFrame;
-            doubleSliderWidget.value.endMarkerFrame = valueToSet;
-            that.outPointWidget.value = valueToSet;
-
-            const inPointFrame = this.getInPointFrame();
-            if (valueToSet < inPointFrame) {
-                doubleSliderWidget.value.startMarkerFrame = this.getStartFrame();
-                that.inPointWidget.value = this.getStartFrame();
-            }
-        };
-
-        // Add loader widget
-        createLoaderOverlay(previewWidget);
 
         // Add double slider widget
         document.body.appendChild(doubleSliderWidget.inputEl);
@@ -561,29 +591,19 @@ export async function createWidgets(nodeType) {
             }                
         });
         this.playerControlsWidget = playerControlsWidget;
-        previewWidget.playPauseTriggeredCallback = () => {
-            updatePlayPauseControl(previewWidget, playerControlsWidget)
-        };
-
-        doubleSliderWidget.positionUpdatedCallback = (value) => {
-            pauseVideoIfPlaying(previewWidget, playerControlsWidget);
-            const frameAtValue = previewWidget.videoEl.getFrameForNValue(value);
-            const clampedValue = clamp(frameAtValue, 1, doubleSliderWidget.value.totalFrames);
-            previewWidget.videoEl.setCurrentFrame(clampedValue);
-        };
 
         // Add In/Out point and frame widgets
-        const currentFrameWidget = this.addWidget("number", "current_frame", 1, (value) => {
+        const currentFrameWidget = this.addWidget("number", "current_frame", -1, (value) => {
             previewWidget.videoEl.setCurrentFrame(value);
         }, { min: 1, max: 1, step: 10, precision: 0 });
         this.currentFrameWidget = currentFrameWidget;
 
-        const inPointWidget = this.addWidget("number", "in_point", 1, (value) => {
+        const inPointWidget = this.addWidget("number", "in_point", -1, (value) => {
             previewWidget.videoEl.setInPoint(value);
         }, { min: 1, max: 1, step: 10, precision: 0 });
         this.inPointWidget = inPointWidget;
 
-        const outPointWidget = this.addWidget("number", "out_point", 1, (value) => {
+        const outPointWidget = this.addWidget("number", "out_point", -1, (value) => {
             previewWidget.videoEl.setOutPoint(value);
         }, { min: 1, max: 1, step: 10, precision: 0 });
         this.outPointWidget = outPointWidget;
@@ -593,7 +613,10 @@ export async function createWidgets(nodeType) {
         this.selectEveryNthFrameWidget = selectEveryNthFrameWidget;
 
         // Make sure to reload video after refreshing
-        setTimeout(() => pathWidget.callback(pathWidget.value, true), 10);
+        setTimeout(() => {
+            pathWidget.callback(pathWidget.value, true);
+            this.graph?.setDirtyCanvas(true);
+        }, 10);
 
         // Cleanup
         this.serialize_widgets = true;
