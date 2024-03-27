@@ -240,7 +240,9 @@ function createVideoPreviewWidget(hostNode) {
                 }
             }
         }
-        lnl_fitHeight(hostNode);
+        setTimeout(() => {
+            lnl_fitHeight(hostNode);
+        }, 10);
     });
     
     previewWidget.videoEl.addEventListener("error", () => {
