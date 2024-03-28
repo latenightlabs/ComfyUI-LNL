@@ -22,8 +22,10 @@ utils.py: Back-end utility functions supporting video editing features.
 nodes.py: Defines the server-side representation of the Load Video Node.
 
 ## Installation
-Ensure you have ComfyUI and its dependencies installed.
-Clone or download this repository into your \ComfyUI\custom_nodes
+1. Ensure you have ComfyUI and its dependencies installed.
+2. Clone or download this repository into your \ComfyUI\custom_nodes
+3. Install `ffmpeg` compatible with your platform from the following url: https://ffmpeg.org/download.html.
+4. Run `pip install -r requirements. txt` to setup your environment.
 
 # To use the Load Video Node:
 
