@@ -23,33 +23,21 @@ nodes.py: Defines the server-side representation of the Load Video Node.
 
 ## Installation
 1. Ensure you have ComfyUI and its dependencies installed.
-2. Clone or download this repository into your \ComfyUI\custom_nodes
-3. Run `pip install -r requirements. txt` to setup your environment.
+2. Clone this repo into custom_nodes:
+```
+$ cd ComfyUI/custom_nodes
+$ git clone https://github.com/latenightlabs/ComfyUI-LNL.git
+```
+
+Install dependencies (not needed if you have ffmpeg for AnimateDiff):
+```
+$ cd ComfyUI-LNL
+$ pip install -r requirements.txt
+```
 
 # To use the Load Video Node:
 
-Upload a video file using the provided upload functionality.
-Use controls for the playback
-Set In & Out points to extract specified frame ranges
-Use Current Frame for look development before running longer sequences of clips
 <img width="330" alt="image" src="https://github.com/latenightlabs/ComfyUI-LNL/assets/157748925/0b1be661-44b5-441b-aba4-17a479ddd96c">
-
-Installation
-To install and use the SDXL Prompt Styler nodes, follow these steps:
-
-Open a terminal or command line interface.
-Navigate to the ComfyUI/custom_nodes/ directory.
-Run the following command: git clone https://github.com/twri/sdxl_prompt_styler.git
-Restart ComfyUI.
-This command clones the SDXL Prompt Styler repository into your ComfyUI/custom_nodes/ directory. You should now be able to access and use the nodes from this repository.
-
-Inputs
-text_positive - text for the positive base prompt
-text_negative - text for the negative base prompt
-log_prompt - print inputs and outputs to stdout
-Outputs
-text_positive - combined prompt with style for positive prompt
-text_negative - combined prompt with style for negative prompt
 
 
 ## Credits
