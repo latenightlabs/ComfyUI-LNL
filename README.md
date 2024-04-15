@@ -57,7 +57,7 @@ Options include:
 
 ## Playback Controls
 
-<img width="330" alt="image" src="https://github.com/latenightlabs/ComfyUI-LNL/assets/157748925/1fda10e1-9b48-4a74-abd3-4d086529cd12">
+<img width="330" alt="image" src="https://github.com/latenightlabs/ComfyUI-LNL/assets/157748925/42f2987e-b4a5-433b-a2d1-0fd33eed03ed">
 
 ### Timeline Scrubber
 1. Shows the current frame number out of the total number of frames (in this instance, frame 83 of 149).
