@@ -60,7 +60,7 @@ Options include:
 <img width="330" alt="image" src="https://github.com/latenightlabs/ComfyUI-LNL/assets/157748925/42f2987e-b4a5-433b-a2d1-0fd33eed03ed">
 
 ### Timeline Scrubber
-1. Shows the current frame number out of the total number of frames (in this instance, frame 83 of 149).
+1. Shows the current frame number out of the total number of frames (in this instance, frame 66 of 149).
 2. In Point is green
 3. Out Point is red
 Note: In and Out point is set with the playback controls or in the input fields.
