@@ -1,5 +1,5 @@
-# Load Video Scrubber & Editor Node for ComfyUI
-The Late Night Labs (LNL) Scrubber & Editor node for ComfyUI is aimed at enhancing video interaction within the ComfyUI framework. It enables users to upload, playback, and perform basic In/Out on video files directly within the ComfyUI environment.
+# Frame Selector & Sequence Selection Node for ComfyUI
+The Late Night Labs (LNL) Frame Selector node for ComfyUI is aimed at enhancing video interaction within the ComfyUI framework. It enables users to upload, playback, and perform basic In/Out on video files directly within the ComfyUI environment.
 
 ## Features
 Video Upload and Playback: Users can upload video files and utilize standard playback controls including Play, Pause, Scrub, and Rewind.
@@ -24,17 +24,35 @@ nodes.py: Defines the server-side representation of the Load Video Node.
 ## Installation
 1. Ensure you have ComfyUI and its dependencies installed.
 2. Clone or download this repository into your \ComfyUI\custom_nodes
-3. Install `ffmpeg` compatible with your platform from the following url: https://ffmpeg.org/download.html.
-4. Run `pip install -r requirements. txt` to setup your environment.
+3. Run `pip install -r requirements. txt` to setup your environment.
 
 # To use the Load Video Node:
 
-Navigate to the ComfyUI environment where the node is integrated.
 Upload a video file using the provided upload functionality.
-Utilize the playback and editing controls to interact with your video.
-For detailed usage instructions, refer to the user_manual.pdf (if available) within the project directory.
+Use controls for the playback
+Set In & Out points to extract specified frame ranges
+Use Current Frame for look development before running longer sequences of clips
+<img width="330" alt="image" src="https://github.com/latenightlabs/ComfyUI-LNL/assets/157748925/0b1be661-44b5-441b-aba4-17a479ddd96c">
 
-## Attributions
+Installation
+To install and use the SDXL Prompt Styler nodes, follow these steps:
+
+Open a terminal or command line interface.
+Navigate to the ComfyUI/custom_nodes/ directory.
+Run the following command: git clone https://github.com/twri/sdxl_prompt_styler.git
+Restart ComfyUI.
+This command clones the SDXL Prompt Styler repository into your ComfyUI/custom_nodes/ directory. You should now be able to access and use the nodes from this repository.
+
+Inputs
+text_positive - text for the positive base prompt
+text_negative - text for the negative base prompt
+log_prompt - print inputs and outputs to stdout
+Outputs
+text_positive - combined prompt with style for positive prompt
+text_negative - combined prompt with style for negative prompt
+
+
+## Credits
 This project uses parts of code and some ideas from the following repositories:
 [ComfyUI-Custom-Scripts](https://github.com/pythongosssss/ComfyUI-Custom-Scripts)
 [ComfyUI-VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite)
@@ -44,7 +62,7 @@ We also use icons for player controls supplied by [Icons8](https://icons8/com).
 
 
 # Contributing
-Contributions to the Load Video Node project are welcome. Please follow the contributing guidelines outlined in CONTRIBUTING.md (if available) for more information on how to contribute.
+Contributions to the Load Video Node project are welcome. Please 
 
 # License
-This project is licensed under the [LICENSE NAME] License - see the LICENSE file for details.
+This project is licensed under the GNU General Public License.
