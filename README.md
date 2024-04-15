@@ -55,24 +55,33 @@ Options include:
 8. Audio: Pass audio track if desired.
 
 ## Playback Controls
-<img width="285" alt="image" src="https://github.com/latenightlabs/ComfyUI-LNL/assets/157748925/1fda10e1-9b48-4a74-abd3-4d086529cd12">
 
-1. Double Left Arrow ("**|<**"): Takes the user to the very first frame of the video.
-2. Single Left Arrow with Vertical Line ("**<|**"): Takes the user to the 'in_point', which is the frame set as the starting point for a selected range.
-3. Single Left Arrow ("<"): Steps backward by one frame, moving the current frame to the previous frame in the video.
-4. Triangle Pointing to the Right ("▶"): Plays the video from the current frame forward.
-5. Square ("■"): Stops the playback and could either halt at the current frame or reset to a predefined position, such as the 'in_point'.
-6. Single Right Arrow (">"): Steps forward by one frame at a time.
-7. Single Right Arrow with Vertical Line ("|>"): Takes the user to the 'out_point', the frame set as the ending point for a selected range.
-8. Double Right Arrow (">|"): Jumps to the very last frame of the video.
+<img width="330" alt="image" src="https://github.com/latenightlabs/ComfyUI-LNL/assets/157748925/1fda10e1-9b48-4a74-abd3-4d086529cd12">
 
-Frame Information: Shows the current frame number out of the total number of frames (in this instance, frame 65 of 149).
+### Timeline Scrubber
+1. Shows the current frame number out of the total number of frames (in this instance, frame 83 of 149).
+2. In Point is green
+3. Out Point is red
+Note: In and Out point is set with the playback controls or in the input fields.
 
-Numeric Input Fields and Controls:
 
-current_frame: A field that likely displays the current frame number and allows you to jump to a specific frame.
-in_point and out_point: Fields for setting the start and end points for a range of frames, possibly for batch processing or focused editing.
-select_every_nth_frame: A field that might be used to specify a pattern for selecting frames (e.g., every 2nd frame, every 3rd frame, etc.).
+### Media Controls left to right:
+1. Takes the user to the very first frame of the video.
+2. Set 'in_point'.
+3. Takes the user to the 'in_point', which is the frame set as the starting point for a selected range.
+4. Steps backward by one frame, moving the current frame to the previous frame in the video.
+5. Plays the video from the current frame forward.
+6. _Not visible while Play button is displayed: Pause the playback at the current frame._
+7. Steps forward by one frame at a time.
+8. Takes the user to the 'out_point', the frame set as the ending point for a selected range.
+9. Sets the 'out_point'.
+10. Jumps to the very last frame of the video.
+
+### Numeric Input Fields and Controls:
+
+1. current_frame: Displays the current frame number and allows you to jump to a specific frame.
+2. in_point and out_point: Fields for setting the start and end points for a range of frames for focused editing of a frame range.
+3. select_every_nth_frame: Specify a pattern for selecting frames (e.g., every 2nd frame, every 3rd frame, etc.).
 
 
 ## Credits
