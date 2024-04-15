@@ -2,24 +2,25 @@
 The Late Night Labs (LNL) Frame Selector node for ComfyUI is aimed at enhancing video interaction within the ComfyUI framework. It enables users to upload, playback, and perform basic In/Out on video files directly within the ComfyUI environment.
 
 ## Features
-Video Upload and Playback: Users can upload video files and utilize standard playback controls including Play, Pause, Scrub, and Rewind.
-Editing Tools: The node offers simple editing capabilities such as setting In/Out points for selecting specific video sections, frame selection for detailed editing, and outputting frames with handles for further processing.
-Structure
+- Video Upload and Playback: Users can upload video files and utilize standard playback controls including Play, Pause, Scrub, and Rewind.
+- Editing Tools: The node offers simple editing capabilities such as setting In/Out points for selecting specific video sections, frame selection for detailed editing, and outputting frames with handles for further processing.
+
+## Structure
 The project is structured into two main components: the web directory, containing front-end JavaScript and CSS files, and the modules directory, containing back-end Python scripts.
 
 ### Web Directory
-eventHandlers.js: Manages event handling for video playback and editing features.
-nodes.js: Defines the Load Video Node structure and integration within ComfyUI.
-utils.js: Contains utility functions for video processing and manipulation.
-widgets.js: Implements UI components for video editing.
-styles.js: Handles dynamic styling of the video node elements.
-css/lnlNodes.css: Provides styling for the Load Video Node components.
-images/: Contains icons used for playback and editing controls.
+- eventHandlers.js: Manages event handling for video playback and editing features.
+- nodes.js: Defines the Load Video Node structure and integration within ComfyUI.
+- utils.js: Contains utility functions for video processing and manipulation.
+- widgets.js: Implements UI components for video editing.
+- styles.js: Handles dynamic styling of the video node elements.
+- css/lnlNodes.css: Provides styling for the Load Video Node components.
+- images/: Contains icons used for playback and editing controls.
 
 ### Modules Directory
-server.py: Back-end server implementation for handling video upload and processing.
-utils.py: Back-end utility functions supporting video editing features.
-nodes.py: Defines the server-side representation of the Load Video Node.
+- server.py: Back-end server implementation for handling video upload and processing.
+- utils.py: Back-end utility functions supporting video editing features.
+- nodes.py: Defines the server-side representation of the Load Video Node.
 
 ## Installation
 1. Ensure you have ComfyUI and its dependencies installed.
@@ -51,7 +52,7 @@ Options include:
 4. Frame count (abs): Absolute count of frames in the uploaded video.
 5. Current frame (rel): The current frame number relative to in and out points.
 6. Current frame (abs): The absolute frame number within the entire video.
-7. Frame rate: FPS in the uploaded.
+7. Frame rate: FPS in the uploaded video.
 8. Audio: Pass audio track if desired.
 
 ## Playback Controls
