@@ -93,8 +93,8 @@ class FrameSelector:
 
 class FrameSelectorV2(FrameSelector):
 
-    RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "INT", "INT", "INT", "INT", "INT", "VHS_AUDIO",)
-    RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame in", "Frame out", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)", "Frame rate", "audio",)
+    RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "STRING", "INT", "INT", "INT", "INT", "INT", "VHS_AUDIO",)
+    RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame in", "Frame out", "Filename", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)", "Frame rate", "audio",)
     OUTPUT_NODE = True
     CATEGORY = "LNL"
     FUNCTION = "process_video"
@@ -110,7 +110,7 @@ class FrameSelectorV2(FrameSelector):
         out_point = prompt_inputs["in_out_point_slider"]["endMarkerFrame"]
 
         result = super().process_video(video_path, prompt, unique_id)
-        return result[:2] + (in_point, out_point,) + result[2:]
+        return result[:2] + (in_point, out_point, video_path,) + result[2:]
 
 NODE_CLASS_MAPPINGS = {
     "LNL_FrameSelectorV2": FrameSelectorV2,
