@@ -1,0 +1,15 @@
+[project]
+name = "comfyui-lnl"
+description = "Frame Selector & Sequence Selection Node for ComfyUI."
+version = "1.0.0"
+license = "LICENSE"
+dependencies = ["opencv-python", "imageio-ffmpeg"]
+
+[project.urls]
+Repository = "https://github.com/latenightlabs/ComfyUI-LNL"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "ComfyUI-LNL"
+Icon = ""
