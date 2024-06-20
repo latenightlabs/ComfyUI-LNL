@@ -3,7 +3,7 @@ The Late Night Labs (LNL) Frame Selector node for ComfyUI is aimed at enhancing 
 
 ## Features
 - Video Upload and Playback: Users can upload video files and utilize standard playback controls including Play, Pause, Scrub, and Rewind.
-- Editing Tools: The node offers simple editing capabilities such as setting In/Out points for selecting specific video sections, frame selection for detailed editing, and outputting frames with handles for further processing.
+- Editing Tools: The node offers simple editing capabilities such as setting In/Out points for selecting specific video sections, frame selection for detailed editing, and outputting frames with handles for further processing. Audio can be included.
 
 ## Structure
 The project is structured into two main components: the web directory, containing front-end JavaScript and CSS files, and the modules directory, containing back-end Python scripts.
@@ -30,11 +30,14 @@ $ cd ComfyUI/custom_nodes
 $ git clone https://github.com/latenightlabs/ComfyUI-LNL.git
 ```
 
-Install dependencies (not needed if you have ffmpeg for AnimateDiff):
+Install dependencies if not downloaded from the Comfy Manager:
 ```
 $ cd ComfyUI-LNL
 $ pip install -r requirements.txt
 ```
+
+# Troubleshooting
+Make sure you that you have ffmpeg defined in your path.
 
 # To use the Load Video Node:
 
@@ -52,7 +55,7 @@ Options include:
 4. Frame count (abs): Absolute count of frames in the uploaded video.
 5. Current frame (rel): The current frame number relative to in and out points.
 6. Current frame (abs): The absolute frame number within the entire video.
-7. Frame rate: FPS in the uploaded video.
+7. Framerate: FPS in the uploaded video.
 8. Audio: Pass audio track if desired.
 
 ## Playback Controls
