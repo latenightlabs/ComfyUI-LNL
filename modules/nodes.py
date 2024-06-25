@@ -112,11 +112,46 @@ class FrameSelectorV2(FrameSelector):
         result = super().process_video(video_path, prompt, unique_id)
         return result[:2] + (in_point, out_point, video_path,) + result[2:]
 
+class FrameSelectorV3(FrameSelectorV2):
+
+    @classmethod
+    def INPUT_TYPES(s):
+        v2_input_types = FrameSelectorV2.INPUT_TYPES()
+        v2_input_types["required"]["force_rate"] = ("INT", {"default": 0, "min": 0, "max": 60, "step": 1})
+        v2_input_types["required"]["force_size"] = (["Disabled", "Custom Height", "Custom Width", "Custom", "256x?", "?x256", "256x256", "512x?", "?x512", "512x512"],)
+        v2_input_types["required"]["custom_width"] = ("INT", {"default": 512, "min": 0, "max": 8192, "step": 8})
+        v2_input_types["required"]["custom_height"] = ("INT", {"default": 512, "min": 0, "max": 8192, "step": 8})
+        return v2_input_types
+
+    RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "STRING", "INT", "INT", "INT", "INT", "INT", "VHS_AUDIO",)
+    RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame in", "Frame out", "Filename", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)", "Frame rate", "audio",)
+    OUTPUT_NODE = True
+    CATEGORY = "LNL"
+    FUNCTION = "process_video"
+
+    def process_video(
+        self,
+        video_path,
+        force_rate,
+        force_size,
+        custom_width,
+        custom_height,
+        prompt=None,
+        unique_id=None
+    ):
+        prompt_inputs = prompt[unique_id]["inputs"]
+        print(prompt_inputs)
+        print(force_size, custom_width, custom_height)
+        result = super().process_video(video_path, prompt, unique_id)
+        return result
+
 NODE_CLASS_MAPPINGS = {
+    "LNL_FrameSelectorV3": FrameSelectorV3,
     "LNL_FrameSelectorV2": FrameSelectorV2,
     "LNL_FrameSelector": FrameSelector,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "LNL_FrameSelectorV2": "LNL Frame Selector V2",
+    "LNL_FrameSelectorV3": "LNL Frame Selector V3",
+    "LNL_FrameSelectorV2": "LNL Frame Selector V2 [Deprecated] ⛔️",
     "LNL_FrameSelector": "LNL Frame Selector [Deprecated] ⛔️",
 }
