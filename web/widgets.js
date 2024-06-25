@@ -520,7 +520,6 @@ function injectHidden(widget) {
 }
 
 function updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget) {
-    console.log(`sizeWidget.value: ${sizeWidget.value}`)
     switch (sizeWidget.value) {
         case "Custom Width":
             customWidthWidget.hidden = false;
@@ -594,12 +593,14 @@ export async function createWidgets(nodeType) {
         const sizeWidget = this.widgets.find((w) => w.name === 'force_size');
         const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');
         const customHeightWidget = this.widgets.find((w) => w.name === 'custom_height');
-        injectHidden(customWidthWidget);
-        injectHidden(customHeightWidget);
-        sizeWidget.callback = (value) => {
-            updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
-            lnl_fitHeight(that);
-        };
+        if (sizeWidget !== undefined) {
+            injectHidden(customWidthWidget);
+            injectHidden(customHeightWidget);
+            sizeWidget.callback = (value) => {
+                updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
+                lnl_fitHeight(that);
+            };
+        }
 
         // Add double slider widget
         document.body.appendChild(doubleSliderWidget.inputEl);
@@ -699,9 +700,10 @@ export async function createWidgets(nodeType) {
         const sizeWidget = this.widgets.find((w) => w.name === 'force_size');
         const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');
         const customHeightWidget = this.widgets.find((w) => w.name === 'custom_height');
-
-        updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
-        lnl_fitHeight(this);
+        if (sizeWidget !== undefined) {
+            updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
+            lnl_fitHeight(this);
+        }
     };
 }
 
