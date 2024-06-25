@@ -54,7 +54,7 @@ def lnl_lazy_eval(func):
     cache = Cache(func)
     return lambda : cache.get()
 
-def lnl_cv_frame_generator(video, frame_load_cap, skip_first_frames, select_every_nth):
+def lnl_cv_frame_generator(video, force_rate, frame_load_cap, skip_first_frames, select_every_nth):
     try:
         video_cap = cv2.VideoCapture(video)
         if not video_cap.isOpened():
@@ -67,8 +67,13 @@ def lnl_cv_frame_generator(video, frame_load_cap, skip_first_frames, select_ever
         width = video_cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         height = video_cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
         prev_frame = None
-        target_frame_time = base_frame_time
+
+        if force_rate == 0:
+            target_frame_time = base_frame_time
+        else:
+            target_frame_time = 1/force_rate
         yield (width, height, target_frame_time)
+        
         time_offset=target_frame_time - base_frame_time
         while video_cap.isOpened():
             if time_offset < target_frame_time:
