@@ -1,6 +1,6 @@
 import { app } from "../../scripts/app.js";
 
-import { createFrameSelectorWidgets } from "./widgets.js";
+import { createFrameSelectorWidgets } from "./videoPlayer/videoPlayer.js";
 import { lnlAddStylesheet, lnlGetUrl } from "./utils.js";
 
 function setupFrameSelectorNodeHandlers(nodeType) {
@@ -25,6 +25,7 @@ app.registerExtension({
     
     async init() {
         lnlAddStylesheet(lnlGetUrl("css/lnlNodes.css", import.meta.url));
+        console.log(`[LNL] Loaded extension: ${this.name}`);
     },
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData?.name.indexOf("LNL_FrameSelector") !== -1) {

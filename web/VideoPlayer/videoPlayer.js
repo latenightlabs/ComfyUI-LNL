@@ -5,10 +5,10 @@ import { api } from "../../../scripts/api.js";
 import { $el } from "../../../scripts/ui.js";
 import { createSpinner } from "../../../scripts/ui/spinner.js";
 
-import { clamp, lnlGetUrl, lnlUploadFile } from "./utils.js";
-import { getLNLPositionStyle } from "./styles.js";
-import { handleLNLMouseEvent } from "./eventHandlers.js";
-import { processVideoEntry } from "./utils.js";
+import { clamp, lnlGetUrl, lnlUploadFile } from "../utils.js";
+import { getLNLPositionStyle } from "../styles.js";
+import { handleLNLMouseEvent } from "../eventHandlers.js";
+import { processVideoEntry } from "../utils.js";
 
 // Double slider widget
 function createDoubleSliderWidget(hostNode, widgetName) {
@@ -71,15 +71,15 @@ function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
 
     // Images downloaded from Icons8 (https://icons8/com).
     const images = [
-        lnlGetUrl("images/goto_start.png", import.meta.url),
-        lnlGetUrl("images/set_in_point.png", import.meta.url),
-        lnlGetUrl("images/goto_in_point.png", import.meta.url),
-        lnlGetUrl("images/step_backward.png", import.meta.url),
-        lnlGetUrl("images/pause.png", import.meta.url),
-        lnlGetUrl("images/step_forward.png", import.meta.url),
-        lnlGetUrl("images/goto_out_point.png", import.meta.url),
-        lnlGetUrl("images/set_out_point.png", import.meta.url),
-        lnlGetUrl("images/goto_end.png", import.meta.url),
+        lnlGetUrl("../images/goto_start.png", import.meta.url),
+        lnlGetUrl("../images/set_in_point.png", import.meta.url),
+        lnlGetUrl("../images/goto_in_point.png", import.meta.url),
+        lnlGetUrl("../images/step_backward.png", import.meta.url),
+        lnlGetUrl("../images/pause.png", import.meta.url),
+        lnlGetUrl("../images/step_forward.png", import.meta.url),
+        lnlGetUrl("../images/goto_out_point.png", import.meta.url),
+        lnlGetUrl("../images/set_out_point.png", import.meta.url),
+        lnlGetUrl("../images/goto_end.png", import.meta.url),
     ];
     const tooltips = [
         "Go to start",
@@ -424,12 +424,12 @@ function updatePlayPauseControl(previewWidget, playerControlsWidget) {
 }
 
 function setPlayIcon(playerControlsWidget) {
-    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("images/play.png", import.meta.url)}" />`;
+    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("../images/play.png", import.meta.url)}" />`;
     assignPlayPauseControlImage(playerControlsWidget, imageHTML);
 }
 
 function setPauseIcon(playerControlsWidget) {
-    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("images/pause.png", import.meta.url)}" />`;
+    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("../images/pause.png", import.meta.url)}" />`;
     assignPlayPauseControlImage(playerControlsWidget, imageHTML);
 }
 
