@@ -541,7 +541,7 @@ function updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget
 }
 
 // Create widgets
-export async function createWidgets(nodeType) {
+export async function createFrameSelectorWidgets(nodeType) {
     const originalNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
         originalNodeCreated?.apply(this, arguments);

@@ -1,9 +1,9 @@
 import { app } from "../../scripts/app.js";
 
-import { createWidgets } from "./widgets.js";
+import { createFrameSelectorWidgets } from "./widgets.js";
 import { lnlAddStylesheet, lnlGetUrl } from "./utils.js";
 
-function setupNodeHandlers(nodeType) {
+function setupFrameSelectorNodeHandlers(nodeType) {
     const originalOnExecutionStart = nodeType.prototype.onExecutionStart;
     nodeType.prototype.onExecutionStart = function () {
         this.previewWidget.videoEl.pause();
@@ -27,11 +27,10 @@ app.registerExtension({
         lnlAddStylesheet(lnlGetUrl("css/lnlNodes.css", import.meta.url));
     },
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData?.name !== "LNL_FrameSelector" && nodeData?.name !== "LNL_FrameSelectorV2" && nodeData?.name !== "LNL_FrameSelectorV3") {
-            return;
-        }
-        await createWidgets(nodeType);
+        if (nodeData?.name.indexOf("LNL_FrameSelector") !== -1) {
+            await createFrameSelectorWidgets(nodeType);
 
-        setupNodeHandlers(nodeType);
+            setupFrameSelectorNodeHandlers(nodeType);
+        }
     },
 });
