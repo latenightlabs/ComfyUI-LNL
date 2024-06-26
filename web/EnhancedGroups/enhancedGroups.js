@@ -20,14 +20,22 @@ function extendCanvasMenu() {
             event.canvasX,
             event.canvasY
         );
-        if (group) {
-            // const oldCanvasMenu = LGraphCanvas.prototype.getCanvasMenuOptions;
-            // console.log(oldCanvasMenu)
-            // LGraphCanvas.prototype.getCanvasMenuOptions = () => {
-            //     const enhancedCanvasMenu = oldCanvasMenu();
-            //     enhancedCanvasMenu.push(null);
-            //     return enhancedCanvasMenu;
-            // };
+        if (!group) {
+            const oldCanvasMenu = LGraphCanvas.prototype.getCanvasMenuOptions;
+            LGraphCanvas.prototype.getCanvasMenuOptions = function() {
+                const enhancedCanvasMenu = oldCanvasMenu.apply(this, arguments);
+                const index = enhancedCanvasMenu.findIndex((o) => o?.content === "Add Group");
+                if (index === -1) {
+                    return enhancedCanvasMenu;
+                }
+                if (enhancedCanvasMenu[index].submenu) {
+                    return enhancedCanvasMenu;
+                }
+                enhancedCanvasMenu[index] = { content: "Add Group", callback: LGraphCanvas.onGroupAdd};
+                // enhancedCanvasMenu[index] = { content: "Add Group", submenu: true};
+                
+                return enhancedCanvasMenu;
+            };
         }   
 
         oldProcessContextMenu.apply(this, arguments);
@@ -41,11 +49,11 @@ function extendGroupContextMenu() {
             this.recomputeInsideNodes();
             initialGroupNodeRecomputed = true;
         }
-        console.log(`node.title: ${this.title}, node.id: ${this.id}, node._bounding: ${this._bounding}, node.color: ${this.color}, node.font_size: ${this.font_size}`);
-        console.log(`node is group: ${this instanceof LGraphGroup}`)
-        console.log(`this._nodes: ${this._nodes.length}`)
+        // console.log(`node.title: ${this.title}, node.id: ${this.id}, node._bounding: ${this._bounding}, node.color: ${this.color}, node.font_size: ${this.font_size}`);
+        // console.log(`node is group: ${this instanceof LGraphGroup}`)
+        // console.log(`this._nodes: ${this._nodes.length}`)
         for (const node of this._nodes) {
-            console.log(`subnode: ${node.title}, ${node.id}, ${node.pos}, ${node.size}, ${node.color}, ${node.font_size}`);
+            // console.log(`subnode: ${node.title}, ${node.id}, ${node.pos}, ${node.size}, ${node.color}, ${node.font_size}`);
         }
         const object = serialize.apply(this, arguments);
         object.nodes = this._nodes.map(node => node.id);
@@ -94,5 +102,5 @@ function extendGroupContextMenu() {
 
 export function registerGroupExtensions() {
     extendGroupContextMenu();
-    // extendCanvasMenu();
+    extendCanvasMenu();
 }
