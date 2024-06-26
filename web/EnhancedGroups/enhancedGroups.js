@@ -1,5 +1,7 @@
 import { app } from "../../../scripts/app.js"; // For LiteGraph
 
+var initialGroupNodeRecomputed = false;
+
 function xxx(item, options, e, menu, groupNode) {
     // console.log(`item: ${JSON.stringify(item)}, options: ${JSON.stringify(options)}, e: ${JSON.stringify(e)}, menu: ${JSON.stringify(menu)}, node: ${JSON.stringify(node)}`);
     console.log(`item: ${JSON.stringify(item)}, node.title: ${groupNode.title}, node.id: ${groupNode.id}, node._bounding: ${groupNode._bounding}, node.color: ${groupNode.color}, node.font_size: ${groupNode.font_size}`);
@@ -33,21 +35,22 @@ function extendCanvasMenu() {
 }
 
 function extendGroupContextMenu() {
-    // LGraphGroup.prototype.serialize = function() {
-    //     var b = this._bounding;
-    //     return {
-    //         title: this.title,
-    //         gogo: "gugu",
-    //         bounding: [
-    //             Math.round(b[0]),
-    //             Math.round(b[1]),
-    //             Math.round(b[2]),
-    //             Math.round(b[3])
-    //         ],
-    //         color: this.color,
-    //         font_size: this.font_size
-    //     };
-    // };
+    const serialize = LGraphGroup.prototype.serialize;
+    LGraphGroup.prototype.serialize = function() {
+        if (!initialGroupNodeRecomputed) {
+            this.recomputeInsideNodes();
+            initialGroupNodeRecomputed = true;
+        }
+        console.log(`node.title: ${this.title}, node.id: ${this.id}, node._bounding: ${this._bounding}, node.color: ${this.color}, node.font_size: ${this.font_size}`);
+        console.log(`node is group: ${this instanceof LGraphGroup}`)
+        console.log(`this._nodes: ${this._nodes.length}`)
+        for (const node of this._nodes) {
+            console.log(`subnode: ${node.title}, ${node.id}, ${node.pos}, ${node.size}, ${node.color}, ${node.font_size}`);
+        }
+        const object = serialize.apply(this, arguments);
+        object.nodes = this._nodes.map(node => node.id);
+        return object;
+    };
 
     const oldGroupContextMenu = LGraphCanvas.prototype.getGroupMenuOptions;
     LGraphCanvas.prototype.getGroupMenuOptions = function(node) {
