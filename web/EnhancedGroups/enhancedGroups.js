@@ -90,6 +90,6 @@ function extendGroupContextMenu() {
 }
 
 export function registerGroupExtensions() {
-    // extendGroupContextMenu();
-    extendCanvasMenu();
+    extendGroupContextMenu();
+    // extendCanvasMenu();
 }
