@@ -255,17 +255,30 @@ def lnl_target_size(width, height, force_size, custom_width, custom_height) -> t
             height = int(force_size[1])
     return (width, height)
 
-def setup_group_extension_folders(base_path, source_control_output_path):
-    path = source_control_output_path
-    if not os.path.isabs(source_control_output_path):
-        path = os.path.join(base_path, source_control_output_path)
-    
-    if not os.path.exists(path):
-        os.makedirs(path)
+def get_video_info(video_path):
+    if ffmpeg_path is None:
+        raise Exception("FFMPEG path not set")
 
-    return path
+    full_video_path = os.path.join(folder_paths.base_path, video_path)
+    if not os.path.exists(full_video_path):
+        raise Exception(f"Video path does not exist: {full_video_path}")
 
-setup_group_extension_folders(base_path, "lnl_extended_groups")
+    cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+           '-show_entries', 'stream=r_frame_rate,nb_frames', '-of', 'default=noprint_wrappers=1:nokey=1',
+           full_video_path]
+    process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    output = process.stdout.splitlines()
+
+    frame_rate_str = output[0]
+    try:
+        num, den = map(int, frame_rate_str.split('/'))
+        frame_rate = num / den
+    except ValueError:
+        frame_rate = float(frame_rate_str)
+
+    total_frames = output[1]
+
+    return frame_rate, total_frames
 
 ffmpeg_paths = []
 try:
