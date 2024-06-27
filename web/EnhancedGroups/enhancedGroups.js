@@ -35,8 +35,13 @@ function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
     console.log("saveGroupAsNewVersion");
 }
 
-function loadGroup(menuItem, options, e, menu, groupNode) {
-    console.log(`loadGroup menuItemContent: ${menuItem.content}`);
+async function loadGroup(menuItem, options, e, menu, groupNode) {
+    const data = await versionManager.loadGroupData(menuItem.extra.id);
+    console.log(`data: ${JSON.stringify(data)}`);
+    if (data["versions"].length === 0) {
+        return;
+    }
+    app.loadGraphData(data["versions"][0], false);
 }
 
 function extendCanvasMenu() {
@@ -66,7 +71,7 @@ function extendCanvasMenu() {
                             {
                                 content: "Versioned group", has_submenu: true, submenu: {
                                     title: "Groups",
-                                    options: versionManager.versionedGroups().map(group => ({ content: group, callback: versionManager.loadGroup })),
+                                    options: versionManager.versionedGroups().map(group => ({ content: group.name, callback: loadGroup, extra: group })),
                                 }
                             },
                         ],
@@ -75,11 +80,6 @@ function extendCanvasMenu() {
                 
                 return enhancedCanvasMenu;
             };
-            // const oldMenuClose = ContextMenu.close;
-            // ContextMenu.close = function(e, ignore_parent_menu) {
-            //     console.log(`§§§§`)
-            //     oldMenuClose.apply(this, arguments);
-            // }
         }   
 
         oldProcessContextMenu.apply(this, arguments);

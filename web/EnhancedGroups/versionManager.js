@@ -1,6 +1,6 @@
 'use strict';
 
-import { fetchGroupsData } from "./utils.js";
+import { fetchGroupsData, fetchGroupData } from "./utils.js";
 
 export default class VersionManager {
     
@@ -14,9 +14,14 @@ export default class VersionManager {
     
     async loadVersionedGroups() {
         const result = await fetchGroupsData();
-        this.#versionedGroups = result.map(group => group.name);
+        this.#versionedGroups = result;
     }
     
+    async loadGroupData(groupId) {
+        const result = await fetchGroupData(groupId);
+        return result;
+    }
+
     versionedGroups() {
         return this.#versionedGroups;
     }
