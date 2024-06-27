@@ -259,7 +259,7 @@ def get_video_info(video_path):
     if ffmpeg_path is None:
         raise Exception("FFMPEG path not set")
 
-    full_video_path = os.path.join(folder_paths.base_path, video_path)
+    full_video_path = os.path.join(base_path, video_path)
     if not os.path.exists(full_video_path):
         raise Exception(f"Video path does not exist: {full_video_path}")
 
