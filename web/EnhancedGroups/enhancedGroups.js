@@ -31,6 +31,7 @@ function extendCanvasMenu() {
                 if (enhancedCanvasMenu[index].submenu) {
                     return enhancedCanvasMenu;
                 }
+                // TODO: Add a menu here which will add the latest version of a specific group/flow
                 enhancedCanvasMenu[index] = { content: "Add Group", callback: LGraphCanvas.onGroupAdd};
                 // enhancedCanvasMenu[index] = { content: "Add Group", submenu: true};
                 

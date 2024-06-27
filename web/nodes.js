@@ -30,10 +30,6 @@ app.registerExtension({
         
         registerGroupExtensions();
     },
-    setup() {
-        // registerGroupExtensions();
-        
-    },
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData?.name.indexOf("LNL_FrameSelector") !== -1) {
             await createFrameSelectorWidgets(nodeType);

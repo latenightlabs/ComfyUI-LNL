@@ -1,11 +1,14 @@
 import subprocess
 import shutil
+import os
 
 import cv2
 import numpy as np
 import torch
 
 from PIL import Image
+
+from folder_paths import base_path
 
 """
 Attribution: ComfyUI-VideoHelperSuite
@@ -252,6 +255,17 @@ def lnl_target_size(width, height, force_size, custom_width, custom_height) -> t
             height = int(force_size[1])
     return (width, height)
 
+def setup_group_extension_folders(base_path, source_control_output_path):
+    path = source_control_output_path
+    if not os.path.isabs(source_control_output_path):
+        path = os.path.join(base_path, source_control_output_path)
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    return path
+
+setup_group_extension_folders(base_path, "lnl_extended_groups")
 
 ffmpeg_paths = []
 try:
