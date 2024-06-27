@@ -1,10 +1,15 @@
+'use strict';
+
 import { app } from "../../../scripts/app.js"; // For LiteGraph
+
+import VersionManager from "./versionManager.js";
+const versionManager = new VersionManager();
 
 var initialGroupNodeRecomputed = false;
 
-function xxx(item, options, e, menu, groupNode) {
-    // console.log(`item: ${JSON.stringify(item)}, options: ${JSON.stringify(options)}, e: ${JSON.stringify(e)}, menu: ${JSON.stringify(menu)}, node: ${JSON.stringify(node)}`);
-    console.log(`item: ${JSON.stringify(item)}, node.title: ${groupNode.title}, node.id: ${groupNode.id}, node._bounding: ${groupNode._bounding}, node.color: ${groupNode.color}, node.font_size: ${groupNode.font_size}`);
+function xxx(menuItemContent, options, e, menu, groupNode) {
+    // console.log(`item: ${JSON.stringify(menuItemContent)}, options: ${JSON.stringify(options)}, e: ${JSON.stringify(e)}, menu: ${JSON.stringify(menu)}, node: ${JSON.stringify(node)}`);
+    console.log(`item: ${JSON.stringify(menuItemContent)}, node.title: ${groupNode.title}, node.id: ${groupNode.id}, node._bounding: ${groupNode._bounding}, node.color: ${groupNode.color}, node.font_size: ${groupNode.font_size}`);
     console.log(`node is group: ${groupNode instanceof LGraphGroup}`);
     // iterate over group nodes
     for (const node of groupNode._nodes) {
@@ -31,12 +36,29 @@ function extendCanvasMenu() {
                 if (enhancedCanvasMenu[index].submenu) {
                     return enhancedCanvasMenu;
                 }
-                // TODO: Add a menu here which will add the latest version of a specific group/flow
-                enhancedCanvasMenu[index] = { content: "Add Group", callback: LGraphCanvas.onGroupAdd};
-                // enhancedCanvasMenu[index] = { content: "Add Group", submenu: true};
+
+                enhancedCanvasMenu[index] = {
+                    content: "Add Group", has_submenu: true, submenu: {
+                        title: "Add Group",
+                        options: [
+                            { content: "Empty group", callback: LGraphCanvas.onGroupAdd },
+                            {
+                                content: "Versioned group", has_submenu: true, submenu: {
+                                    title: "Groups",
+                                    options: versionManager.versionedGroups().map(group => ({ content: group, callback: versionManager.loadGroup })),
+                                }
+                            },
+                        ],
+                    }
+                };
                 
                 return enhancedCanvasMenu;
             };
+            // const oldMenuClose = ContextMenu.close;
+            // ContextMenu.close = function(e, ignore_parent_menu) {
+            //     console.log(`§§§§`)
+            //     oldMenuClose.apply(this, arguments);
+            // }
         }   
 
         oldProcessContextMenu.apply(this, arguments);
@@ -57,7 +79,12 @@ function extendGroupContextMenu() {
             // console.log(`subnode: ${node.title}, ${node.id}, ${node.pos}, ${node.size}, ${node.color}, ${node.font_size}`);
         }
         const object = serialize.apply(this, arguments);
-        object.nodes = this._nodes.map(node => node.id);
+        const versioningData = {
+            nodes: this._nodes.map(node => node.id),
+            objectName: this.versioningData?.objectName || "undefined",
+            objectVersion: this.versioningData?.objectVersion || 0,
+        };
+        object.versioningData = versioningData;
         return object;
     };
 
@@ -73,8 +100,8 @@ function extendGroupContextMenu() {
                 title: "Version Control",
                 extra: node,
                 options: [
-                    { content: "Save", callback: xxx },
-                    { content: "Save as new version", callback: xxx },
+                    { content: "Save", callback: saveGroup },
+                    { content: "Save as new version", callback: saveGroupAsNewVersion },
                     {
                         content: "Load version", has_submenu: true, submenu: {
                             title: "Available Versions",
@@ -101,7 +128,9 @@ function extendGroupContextMenu() {
     };
 }
 
-export function registerGroupExtensions() {
+export async function registerGroupExtensions() {
     extendGroupContextMenu();
     extendCanvasMenu();
+
+    await versionManager.loadVersionedGroups();
 }
