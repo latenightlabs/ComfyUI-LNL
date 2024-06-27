@@ -7,15 +7,36 @@ const versionManager = new VersionManager();
 
 var initialGroupNodeRecomputed = false;
 
-function xxx(menuItemContent, options, e, menu, groupNode) {
+function xxx(menuItem, options, e, menu, groupNode, extra) {
+    console.log(`groupNode: ${groupNode}`);
+    console.log(`menuItem: ${menuItem.content}`);
+    console.log(`extra.title: ${JSON.stringify(extra)}`);
+
+    if (menu.parentMenu) {
+        console.log(`menu.parentMenu: ${menu.parentMenu.extra}`);
+    }
+    
+    // console.log(`groupNode: ${JSON.stringify(groupNode)}`);
     // console.log(`item: ${JSON.stringify(menuItemContent)}, options: ${JSON.stringify(options)}, e: ${JSON.stringify(e)}, menu: ${JSON.stringify(menu)}, node: ${JSON.stringify(node)}`);
-    console.log(`item: ${JSON.stringify(menuItemContent)}, node.title: ${groupNode.title}, node.id: ${groupNode.id}, node._bounding: ${groupNode._bounding}, node.color: ${groupNode.color}, node.font_size: ${groupNode.font_size}`);
+    console.log(`item: ${JSON.stringify(menuItem)}, node.title: ${groupNode.title}, node.id: ${groupNode.id}, node._bounding: ${groupNode._bounding}, node.color: ${groupNode.color}, node.font_size: ${groupNode.font_size}`);
     console.log(`node is group: ${groupNode instanceof LGraphGroup}`);
     // iterate over group nodes
     for (const node of groupNode._nodes) {
         console.log(`subnode: ${node.title}, ${node.id}, ${node.pos}, ${node.size}, ${node.color}, ${node.font_size}`);
     }
-    console.log(`menu: ${JSON.stringify(menu.title)}`);
+    console.log(`menu: ${JSON.stringify(menuItem.title)}`);
+}
+
+function saveGroup(menuItem, options, e, menu, groupNode) {
+    console.log("saveGroup");
+}
+
+function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
+    console.log("saveGroupAsNewVersion");
+}
+
+function loadGroup(menuItem, options, e, menu, groupNode) {
+    console.log(`loadGroup menuItemContent: ${menuItem.content}`);
 }
 
 function extendCanvasMenu() {
@@ -105,6 +126,7 @@ function extendGroupContextMenu() {
                     {
                         content: "Load version", has_submenu: true, submenu: {
                             title: "Available Versions",
+                            extra: node,
                             options: [
                                 { content: "Version 1", callback: xxx },
                                 { content: "Version 2", callback: xxx }

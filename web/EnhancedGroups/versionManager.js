@@ -11,18 +11,6 @@ export default class VersionManager {
     // }
 
     #versionedGroups = [];
-
-    saveGroup(menuItem, options, e, menu, groupNode) {
-        console.log("saveGroup");
-    }
-    
-    saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
-        console.log("saveGroupAsNewVersion");
-    }
-    
-    loadGroup(menuItem, options, e, menu, groupNode) {
-        console.log(`loadGroup menuItemContent: ${menuItem.content}`);
-    }
     
     async loadVersionedGroups() {
         const result = await fetchGroupsData();
