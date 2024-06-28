@@ -27,7 +27,7 @@ app.registerExtension({
         lnlAddStylesheet(lnlGetUrl("css/lnlNodes.css", import.meta.url));
     },
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData?.name !== "LNL_FrameSelector" && nodeData?.name !== "LNL_FrameSelectorV2") {
+        if (nodeData?.name !== "LNL_FrameSelector" && nodeData?.name !== "LNL_FrameSelectorV2" && nodeData?.name !== "LNL_FrameSelectorV3") {
             return;
         }
         await createWidgets(nodeType);

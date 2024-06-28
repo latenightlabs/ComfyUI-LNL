@@ -491,6 +491,55 @@ function createUploadWidget(hostNode, pathWidget) {
     return uploadWidget;
 }
 
+/*
+Attribution: ComfyUI-VideoHelperSuite
+
+Portions of this code are adapted from GitHub repository `https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite`,
+which is licensed under the GNU General Public License version 3 (GPL-3.0):
+*/
+function injectHidden(widget) {
+    widget.computeSize = (target_width) => {
+        if (widget.hidden) {
+            return [0, -4];
+        }
+        return [target_width, 20];
+    };
+    widget._type = widget.type
+    Object.defineProperty(widget, "type", {
+        set : function(value) {
+            widget._type = value;
+        },
+        get : function() {
+            if (widget.hidden) {
+                return "hidden";
+            }
+            return widget._type;
+        }
+    });
+    widget.hidden = true;
+}
+
+function updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget) {
+    switch (sizeWidget.value) {
+        case "Custom Width":
+            customWidthWidget.hidden = false;
+            customHeightWidget.hidden = true;
+            break;
+        case "Custom Height":
+            customWidthWidget.hidden = true;
+            customHeightWidget.hidden = false;
+            break;
+        case "Custom":
+            customWidthWidget.hidden = false;
+            customHeightWidget.hidden = false;
+            break;
+        default:
+            customWidthWidget.hidden = true;
+            customHeightWidget.hidden = true;
+            break;
+    }
+}
+
 // Create widgets
 export async function createWidgets(nodeType) {
     const originalNodeCreated = nodeType.prototype.onNodeCreated;
@@ -540,6 +589,18 @@ export async function createWidgets(nodeType) {
         // Add video preview widget
         const previewWidget = createVideoPreviewWidget(this);
         this.previewWidget = previewWidget;
+
+        const sizeWidget = this.widgets.find((w) => w.name === 'force_size');
+        const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');
+        const customHeightWidget = this.widgets.find((w) => w.name === 'custom_height');
+        if (sizeWidget !== undefined) {
+            injectHidden(customWidthWidget);
+            injectHidden(customHeightWidget);
+            sizeWidget.callback = (value) => {
+                updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
+                lnl_fitHeight(that);
+            };
+        }
 
         // Add double slider widget
         document.body.appendChild(doubleSliderWidget.inputEl);
@@ -629,6 +690,20 @@ export async function createWidgets(nodeType) {
             doubleSliderWidget.inputEl.remove();
         };
         this.setSize(this.computeSize());
+    };
+
+    // Loading serialized data
+    const originalOnConfigure = nodeType.prototype.onConfigure;
+    nodeType.prototype.onConfigure = function (info) {
+        originalOnConfigure?.apply(this, arguments);
+
+        const sizeWidget = this.widgets.find((w) => w.name === 'force_size');
+        const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');
+        const customHeightWidget = this.widgets.find((w) => w.name === 'custom_height');
+        if (sizeWidget !== undefined) {
+            updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
+            lnl_fitHeight(this);
+        }
     };
 }
 
