@@ -25,39 +25,37 @@ export async function fetchGroupData(groupId) {
 
 // Litegraph utils
 export function addGroupToGraph(app, groupData) {
+    // this.last_node_id = 0;
+    // this.last_link_id = 0;
+
     // Add links
     // Add nodes
     const nodes = groupData.nodes;
+    const nodeIdMapping = {};
+    for (let i = 0; i < nodes.length; ++i) {
+        const node = nodes[i];
+        nodeIdMapping[node.id] = app.graph.last_node_id + i + 1;
+        node.id = nodeIdMapping[node.id];
+    }
     if (nodes) {
-        for (var i = 0, l = nodes.length; i < l; ++i) {
-            var n_info = nodes[i]; //stored info
-            var node = LiteGraph.createNode(n_info.type, n_info.title);
-            if (!node) {
-                if (LiteGraph.debug) {
-                    console.log(
-                        "Node not found or has errors: " + n_info.type
-                    );
-                }
+        for (let i = 0; i < nodes.length; ++i) {
+            const n_info = nodes[i];
+            const node = LiteGraph.createNode(n_info.type, n_info.title);
 
-                //in case of error we create a replacement node to avoid losing info
-                node = new LGraphNode();
-                node.last_serialization = n_info;
-                node.has_errors = true;
-                error = true;
-                //continue;
-            }
-
-            node.id = n_info.id; //id it or it will create a new id
-            app.graph.add(node, true); //add before configure, otherwise configure cannot create links
+            console.log(`new node id: ${n_info.id}`);
+            node.id = n_info.id;
+            app.graph.add(node, true);
         }
 
         //configure nodes afterwards so they can reach each other
-        for (var i = 0, l = nodes.length; i < l; ++i) {
-            var n_info = nodes[i];
-            var node = app.graph.getNodeById(n_info.id);
+        for (let i = 0; i < nodes.length; ++i) {
+            const n_info = nodes[i];
+            const node = app.graph.getNodeById(n_info.id);
+            console.log(`node id A: ${node.id}`)
             if (node) {
                 node.configure(n_info);
             }
+            console.log(`node id B: ${node.id}`)
         }
     }
     
