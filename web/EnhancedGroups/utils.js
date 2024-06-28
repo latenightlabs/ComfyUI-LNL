@@ -49,7 +49,6 @@ export function addGroupToGraph(app, groupData) {
             link[3] = nodeIDMapping[link[3]];
         }
     }
-    app.graph.last_link_id += links.length;
 
     // Remap nodes' input/output links
     if (nodes) {
@@ -90,10 +89,11 @@ export function addGroupToGraph(app, groupData) {
             link.configure(link_data);
             preparedLinks.push(link);
         }
-        if (!app.graph.links) {
+        if (!app.graph.links || app.graph.links.constructor !== Array || app.graph.links.length === 0) {
             app.graph.links = [];
         }
         app.graph.links.push(...preparedLinks);
+        app.graph.last_link_id += links.length;
     }
 
     // Add nodes
@@ -130,8 +130,9 @@ export function addGroupToGraph(app, groupData) {
     // Update the canvas
     app.graph.updateExecutionOrder();
 
-    if(app.graph.onConfigure)
+    if (app.graph.onConfigure) {
         app.graph.onConfigure(groupData);
+    }
 
     app.graph._version++;
     app.graph.setDirtyCanvas(true, true);

@@ -14,4 +14,4 @@ def setup_group_extension_folders(base_path, source_control_output_path):
 
     return path
 
-group_extension_folder_path = setup_group_extension_folders(base_path, "lnl_extended_groups")
+group_extension_folder_path = setup_group_extension_folders(base_path, "lnl_enhanced_groups")
