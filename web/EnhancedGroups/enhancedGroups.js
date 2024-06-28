@@ -41,7 +41,19 @@ async function loadGroup(menuItem, options, e, menu, groupNode) {
     if (data["versions"].length === 0) {
         return;
     }
-    app.loadGraphData(data["versions"][0], false);
+
+    const oldConfigureGraph = LGraph.prototype.configure;
+    // const oldConfigureGraph = app.graph.configure;
+    console.log(`oldConfigureGraph: ${oldConfigureGraph}`);
+    // app.graph.configure = function() {
+    LGraph.prototype.configure = function() {
+        console.log(`cheating the system: ${data}`)
+        oldConfigureGraph.apply(this, [...arguments, true]);
+    };
+    console.log(`LGraph.prototype.configure: ${app.graph.configure}`);
+    app.loadGraphData(data["versions"][0]);
+    LGraph.prototype.configure = oldConfigureGraph;
+    // app.graph.configure = oldConfigureGraph;
 }
 
 function extendCanvasMenu() {
