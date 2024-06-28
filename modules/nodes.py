@@ -79,9 +79,9 @@ class FrameSelector:
         select_every_nth_frame = prompt_inputs["select_every_nth_frame"]
 
         frames_to_process = out_point - in_point + 1
-        starting_frame = in_point - 1
+        starting_frame = in_point
 
-        (current_image, _) = getImageBatch(full_video_path, 1, 1, current_frame - 1, "Disabled", 0, 0)
+        (current_image, _) = getImageBatch(full_video_path, 1, 1, current_frame, "Disabled", 0, 0)
         (in_out_images, target_frame_time) = getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame, "Disabled", 0, 0)
 
         audio = lambda: lnl_get_audio(full_video_path, starting_frame * target_frame_time,
@@ -156,9 +156,9 @@ class FrameSelectorV3(FrameSelectorV2):
         select_every_nth_frame = prompt_inputs["select_every_nth_frame"]
 
         frames_to_process = out_point - in_point + 1
-        starting_frame = in_point - 1
+        starting_frame = in_point
 
-        (current_image, _) = getImageBatch(full_video_path, 1, 1, current_frame - 1, force_size, custom_width, custom_height)
+        (current_image, _) = getImageBatch(full_video_path, 1, 1, current_frame, force_size, custom_width, custom_height)
         (in_out_images, target_frame_time) = getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame, force_size, custom_width, custom_height)
 
         audio = lambda: lnl_get_audio(full_video_path, starting_frame * target_frame_time,
