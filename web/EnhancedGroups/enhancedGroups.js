@@ -2,6 +2,8 @@
 
 import { app } from "../../../scripts/app.js"; // For LiteGraph
 
+import { addGroupToGraph } from "./utils.js";
+
 import VersionManager from "./versionManager.js";
 const versionManager = new VersionManager();
 
@@ -37,23 +39,12 @@ function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
 
 async function loadGroup(menuItem, options, e, menu, groupNode) {
     const data = await versionManager.loadGroupData(menuItem.extra.id);
-    console.log(`data: ${JSON.stringify(data)}`);
     if (data["versions"].length === 0) {
         return;
     }
+    const latestVersionData = data["versions"][0];
 
-    const oldConfigureGraph = LGraph.prototype.configure;
-    // const oldConfigureGraph = app.graph.configure;
-    console.log(`oldConfigureGraph: ${oldConfigureGraph}`);
-    // app.graph.configure = function() {
-    LGraph.prototype.configure = function() {
-        console.log(`cheating the system: ${data}`)
-        oldConfigureGraph.apply(this, [...arguments, true]);
-    };
-    console.log(`LGraph.prototype.configure: ${app.graph.configure}`);
-    app.loadGraphData(data["versions"][0]);
-    LGraph.prototype.configure = oldConfigureGraph;
-    // app.graph.configure = oldConfigureGraph;
+    addGroupToGraph(app, latestVersionData);
 }
 
 function extendCanvasMenu() {
