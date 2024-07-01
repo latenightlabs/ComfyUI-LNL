@@ -29,12 +29,11 @@ export function addGroupToGraph(app, groupData, touchPos) {
     /// Recalculate positions based on click coordinates which tell us where the
     /// lower-left corner of the group should be
     const nodes = groupData.nodes;
-    const groups = groupData.groups;
-    if (!nodes || !groups || groups.length !== 1) {
+    const nodesGroup = groupData.group;
+    if (!nodes || !nodesGroup) {
         return;
     }
 
-    const nodesGroup = groups[0];
     // 1) Make node positions relative to group's
     for (let i = 0; i < nodes.length; ++i) {
         const node = nodes[i];
@@ -137,7 +136,7 @@ export function addGroupToGraph(app, groupData, touchPos) {
     
     /// Add group
     var group = new LiteGraph.LGraphGroup();
-    group.configure(groups[0]);
+    group.configure(nodesGroup);
     app.graph.add(group);
 
     /// Update the canvas
