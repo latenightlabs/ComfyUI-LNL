@@ -40,6 +40,7 @@ async def route_hander_method(request):
     
     with open(group_file, 'r') as f:
         data = json.load(f)
+        data["id"] = group_id
         data["versions"] = sorted(data["versions"], key=lambda x: x["id"], reverse=True)
     
         return web.json_response(data)

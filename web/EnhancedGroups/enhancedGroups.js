@@ -2,7 +2,7 @@
 
 import { app } from "../../../scripts/app.js"; // For LiteGraph
 
-import { addGroupToGraph } from "./utils.js";
+import { addGroupVersionToGraph } from "./utils.js";
 
 import VersionManager from "./versionManager.js";
 const versionManager = new VersionManager();
@@ -42,9 +42,8 @@ async function loadGroup(menuItem, options, e, menu, groupNode) {
     if (data["versions"].length === 0) {
         return;
     }
-    const latestVersionData = data["versions"][0]["node_data"];
 
-    addGroupToGraph(app, latestVersionData, menuItem.extra.touchPos);
+    addGroupVersionToGraph(app, data, menuItem.extra.touchPos);
 }
 
 function extendCanvasMenu() {
@@ -101,13 +100,23 @@ function extendGroupContextMenu() {
             // console.log(`subnode: ${node.title}, ${node.id}, ${node.pos}, ${node.size}, ${node.color}, ${node.font_size}`);
         }
         const object = serialize.apply(this, arguments);
-        const versioningData = {
-            nodes: this._nodes.map(node => node.id),
-            objectName: this.versioningData?.objectName || "undefined",
-            objectVersion: this.versioningData?.objectVersion || 0,
-        };
-        object.versioningData = versioningData;
+        if (this.versioning_data) {
+            const versioningData = {
+                object_id: this.versioning_data?.object_id || null,
+                object_name: this.versioning_data?.object_name || null,
+                object_version: this.versioning_data?.object_version || null,
+            };
+            object.versioning_data = versioningData;
+        }
         return object;
+    };
+
+    const configure = LGraphGroup.prototype.configure;
+    LGraphGroup.prototype.configure = function(data) {
+        configure.apply(this, arguments);
+        if (data.versioning_data) {
+            this.versioning_data = data.versioning_data;
+        }
     };
 
     const oldGroupContextMenu = LGraphCanvas.prototype.getGroupMenuOptions;

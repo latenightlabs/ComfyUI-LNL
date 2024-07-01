@@ -25,29 +25,40 @@ export async function fetchGroupData(groupId) {
 }
 
 // Litegraph utils
-export function addGroupToGraph(app, groupData, touchPos) {
+export function addGroupVersionToGraph(app, data, touchPos) {
+    const latestVersionData = data["versions"][0];
+    if (!latestVersionData) {
+        return;
+    }
+    const groupVersionData = latestVersionData["node_data"];
+    if (!groupVersionData) {
+        return;
+    }
+    
     /// Recalculate positions based on click coordinates which tell us where the
     /// lower-left corner of the group should be
-    const nodes = groupData.nodes;
-    const nodesGroup = groupData.group;
+    const nodes = groupVersionData.nodes;
+    const nodesGroup = groupVersionData.group;
     if (!nodes || !nodesGroup) {
         return;
     }
 
-    // 1) Make node positions relative to group's
-    for (let i = 0; i < nodes.length; ++i) {
-        const node = nodes[i];
-        node.pos[0] = node.pos[0] - nodesGroup.bounding[0];
-        node.pos[1] = node.pos[1] - nodesGroup.bounding[1];
-    }
-    // 2) Make group lower-left position the same as touch position
-    nodesGroup.bounding[0] = touchPos[0];
-    nodesGroup.bounding[1] = touchPos[1] - nodesGroup.bounding[3];
-    // 3) Make node positions absolute
-    for (let i = 0; i < nodes.length; ++i) {
-        const node = nodes[i];
-        node.pos[0] = node.pos[0] + nodesGroup.bounding[0];
-        node.pos[1] = node.pos[1] + nodesGroup.bounding[1];
+    {
+        // 1) Make node positions relative to group's
+        for (let i = 0; i < nodes.length; ++i) {
+            const node = nodes[i];
+            node.pos[0] = node.pos[0] - nodesGroup.bounding[0];
+            node.pos[1] = node.pos[1] - nodesGroup.bounding[1];
+        }
+        // 2) Make group lower-left position the same as touch position
+        nodesGroup.bounding[0] = touchPos[0];
+        nodesGroup.bounding[1] = touchPos[1] - nodesGroup.bounding[3];
+        // 3) Make node positions absolute
+        for (let i = 0; i < nodes.length; ++i) {
+            const node = nodes[i];
+            node.pos[0] = node.pos[0] + nodesGroup.bounding[0];
+            node.pos[1] = node.pos[1] + nodesGroup.bounding[1];
+        }
     }
 
     /// Remap node IDs
@@ -59,7 +70,7 @@ export function addGroupToGraph(app, groupData, touchPos) {
     }
 
     /// Remap link IDs and link's origin/target node IDs
-    const links = groupData.links;
+    const links = groupVersionData.links;
     const linkIDMapping = {};
     if (links && links.constructor === Array) {
         for (let i = 0; i < links.length; ++i) {
@@ -116,36 +127,49 @@ export function addGroupToGraph(app, groupData, touchPos) {
     }
 
     /// Add nodes
-    // Create new nodes
-    for (let i = 0; i < nodes.length; ++i) {
-        const n_info = nodes[i];
-        const node = LiteGraph.createNode(n_info.type, n_info.title);
+    {
+        // Create new nodes
+        for (let i = 0; i < nodes.length; ++i) {
+            const n_info = nodes[i];
+            const node = LiteGraph.createNode(n_info.type, n_info.title);
 
-        node.id = n_info.id;
-        app.graph.add(node, true);
-    }
+            node.id = n_info.id;
+            app.graph.add(node, true);
+        }
 
-    // Configure nodes with saved data
-    for (let i = 0; i < nodes.length; ++i) {
-        const n_info = nodes[i];
-        const node = app.graph.getNodeById(n_info.id);
-        if (node) {
-            node.configure(n_info);
+        // Configure nodes with saved data
+        for (let i = 0; i < nodes.length; ++i) {
+            const n_info = nodes[i];
+            const node = app.graph.getNodeById(n_info.id);
+            if (node) {
+                node.configure(n_info);
+            }
         }
     }
     
     /// Add group
-    var group = new LiteGraph.LGraphGroup();
-    group.configure(nodesGroup);
-    app.graph.add(group);
+    {
+        var group = new LiteGraph.LGraphGroup();
+        group.configure(nodesGroup);
 
-    /// Update the canvas
-    app.graph.updateExecutionOrder();
+        const versioningData = {
+            object_id: data.id,
+            object_name: data.name,
+            object_version: latestVersionData.id,
+        };
+        group.versioning_data = versioningData;
 
-    if (app.graph.onConfigure) {
-        app.graph.onConfigure(groupData);
+        app.graph.add(group);
+        app.graph.updateExecutionOrder();
     }
 
-    app.graph._version++;
-    app.graph.setDirtyCanvas(true, true);
+    /// Update the canvas
+    {
+        if (app.graph.onConfigure) {
+            app.graph.onConfigure(groupVersionData);
+        }
+
+        app.graph._version++;
+        app.graph.setDirtyCanvas(true, true);
+    }
 }
