@@ -30,7 +30,7 @@ function xxx(menuItem, options, e, menu, groupNode, extra) {
 }
 
 function saveGroup(menuItem, options, e, menu, groupNode) {
-    console.log("saveGroup");
+
 }
 
 function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
@@ -120,39 +120,46 @@ function extendGroupContextMenu() {
     };
 
     const oldGroupContextMenu = LGraphCanvas.prototype.getGroupMenuOptions;
-    LGraphCanvas.prototype.getGroupMenuOptions = function(node) {
-        var enhancedContextMenu = oldGroupContextMenu(node);
+    LGraphCanvas.prototype.getGroupMenuOptions = function(group) {
+        var enhancedContextMenu = oldGroupContextMenu(group);
         enhancedContextMenu.push(null);
 
+        const groupHasVersioningData = group.versioning_data !== undefined;
+        const submenuOptions = [
+            { content: "Save", callback: saveGroup },
+        ];
+        if (groupHasVersioningData) {
+            const versionedGroupOptions = [
+                { content: "Save as new version", callback: saveGroupAsNewVersion },
+                {
+                    content: "Load version", has_submenu: true, submenu: {
+                        title: "Available Versions",
+                        extra: group,
+                        options: [
+                            { content: "Version 1", callback: xxx },
+                            { content: "Version 2", callback: xxx }
+                        ]
+                    }
+                },
+                {
+                    content: "Delete Version", has_submenu: true, submenu: {
+                        title: "Available Versions",
+                        options: [
+                            { content: "Version 1", callback: xxx },
+                            { content: "Version 2", callback: xxx }
+                        ]
+                    }
+                },
+            ];
+            submenuOptions.push(...versionedGroupOptions);
+        }
         const versionControlMenu = {
             content: "Versions",
             has_submenu: true,
             submenu: {
                 title: "Version Control",
-                extra: node,
-                options: [
-                    { content: "Save", callback: saveGroup },
-                    { content: "Save as new version", callback: saveGroupAsNewVersion },
-                    {
-                        content: "Load version", has_submenu: true, submenu: {
-                            title: "Available Versions",
-                            extra: node,
-                            options: [
-                                { content: "Version 1", callback: xxx },
-                                { content: "Version 2", callback: xxx }
-                            ]
-                        }
-                    },
-                    {
-                        content: "Delete Version", has_submenu: true, submenu: {
-                            title: "Available Versions",
-                            options: [
-                                { content: "Version 1", callback: xxx },
-                                { content: "Version 2", callback: xxx }
-                            ]
-                        }
-                    },
-                ]
+                extra: group,
+                options: submenuOptions
             },
         };
         enhancedContextMenu.push(versionControlMenu);
