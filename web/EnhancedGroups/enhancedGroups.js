@@ -38,13 +38,13 @@ function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
 }
 
 async function loadGroup(menuItem, options, e, menu, groupNode) {
-    const data = await versionManager.loadGroupData(menuItem.extra.id);
+    const data = await versionManager.loadGroupData(menuItem.extra.group.id);
     if (data["versions"].length === 0) {
         return;
     }
-    const latestVersionData = data["versions"][0];
+    const latestVersionData = data["versions"][0]["node_data"];
 
-    addGroupToGraph(app, latestVersionData);
+    addGroupToGraph(app, latestVersionData, menuItem.extra.touchPos);
 }
 
 function extendCanvasMenu() {
@@ -54,15 +54,13 @@ function extendCanvasMenu() {
             event.canvasX,
             event.canvasY
         );
+        const touchPos = [event.canvasX, event.canvasY];
         if (!group) {
             const oldCanvasMenu = LGraphCanvas.prototype.getCanvasMenuOptions;
             LGraphCanvas.prototype.getCanvasMenuOptions = function() {
                 const enhancedCanvasMenu = oldCanvasMenu.apply(this, arguments);
                 const index = enhancedCanvasMenu.findIndex((o) => o?.content === "Add Group");
                 if (index === -1) {
-                    return enhancedCanvasMenu;
-                }
-                if (enhancedCanvasMenu[index].submenu) {
                     return enhancedCanvasMenu;
                 }
 
@@ -74,7 +72,7 @@ function extendCanvasMenu() {
                             {
                                 content: "Versioned group", has_submenu: true, submenu: {
                                     title: "Groups",
-                                    options: versionManager.versionedGroups().map(group => ({ content: group.name, callback: loadGroup, extra: group })),
+                                    options: versionManager.versionedGroups().map(group => ({ content: group.name, callback: loadGroup, extra: { group, touchPos } })),
                                 }
                             },
                         ],
