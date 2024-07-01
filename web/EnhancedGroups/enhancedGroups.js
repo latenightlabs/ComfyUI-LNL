@@ -30,7 +30,67 @@ function xxx(menuItem, options, e, menu, groupNode, extra) {
 }
 
 function saveGroup(menuItem, options, e, menu, groupNode) {
+    const groupHasVersioningData = groupNode.versioning_data !== undefined;
 
+    const groupData = {
+        versioning_data: groupNode.versioning_data
+    };
+    // Get component name if needed
+    if (!groupHasVersioningData) {
+        const componentName = prompt("Enter the component name:");
+        if (!componentName) {
+            return;
+        }
+        groupData.versioning_data = { object_name: componentName };
+    }
+
+    // Get group nodes
+    groupData.nodes = groupNode._nodes.map(node => {
+        return node.serialize();
+    });
+
+    // Process and remove links that are not between group nodes
+    {
+        const groupLinkIds = new Set([]);
+        const groupNodeIds = groupNode._nodes.map(node => node.id);
+        for (const node of groupNode._nodes) {
+            if (node.inputs) {
+                node.inputs.forEach(input => {
+                    if (input.link) {
+                        if (groupNodeIds.includes(input.link)) {
+                            groupLinkIds.add(input.link);
+                        }
+                    }
+                });
+            }
+
+            if (node.outputs) {
+                node.outputs.forEach(output => {
+                    if (output.links) {
+                        output.links.forEach(link => {
+                            if (groupNodeIds.includes(link)) {
+                                groupLinkIds.add(link);
+                            }
+                        });
+                    }
+                });
+            }
+        }
+        groupData.links = Array.from(groupLinkIds).map(linkId => {
+            const linkIndex = app.graph.links.findIndex(link => {
+                return link ? link.id === linkId : false;
+            });
+            if (linkIndex === -1) {
+                return null;
+            }
+            return app.graph.links[linkIndex].serialize();
+        });
+    }
+
+    // Add group data
+    groupData.group = groupNode.serialize();
+
+    versionManager.saveGroupData(groupData);
 }
 
 function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {

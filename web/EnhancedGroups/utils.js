@@ -24,6 +24,19 @@ export async function fetchGroupData(groupId) {
     return jsonData;
 }
 
+export async function saveGroupData(groupData) {
+    const body = {
+        group_data: groupData
+    };
+    const result = await api.fetchApi("/save_group_data", { method: "POST", body: JSON.stringify(body) });
+    if (result.error) {
+        console.error(`saveGroupData error: ${result.error}`);
+        return;
+    }
+    const jsonData = await result.json();
+    console.log(`jsonData: ${JSON.stringify(jsonData)}`);
+}
+
 // Litegraph utils
 export function addGroupVersionToGraph(app, data, touchPos) {
     const latestVersionData = data["versions"][0];

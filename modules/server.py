@@ -2,9 +2,10 @@ import server
 web = server.web
 
 import json
+from uuid import uuid4
 
 from .video_utils import *
-from .group_utils import group_extension_folder_path
+from .group_utils import group_extension_folder_path, setup_version_data
 import os
 
 @server.PromptServer.instance.routes.post("/process_video_entry")
@@ -40,7 +41,46 @@ async def route_hander_method(request):
     
     with open(group_file, 'r') as f:
         data = json.load(f)
-        data["id"] = group_id
         data["versions"] = sorted(data["versions"], key=lambda x: x["id"], reverse=True)
     
         return web.json_response(data)
+
+@server.PromptServer.instance.routes.post("/save_group_data")
+async def route_hander_method(request):
+    json_data = await request.json()
+    if not "group_data" in json_data:
+        return web.json_response({"error": "Invalid data"})
+
+    print(f"json_data: {json_data}")
+    group_data = json_data["group_data"]
+    storage_version_data = setup_version_data(group_data)
+    print(f"storage_version_data: {storage_version_data}")
+
+    versioning_data = group_data["versioning_data"]
+    if not "object_id" in versioning_data:
+        object_id = str(uuid4())
+        versioning_data["object_id"] = object_id
+
+    print(f"versioning_data: {versioning_data}")
+
+    # 1) If the object_id file exists, then find the latest version in it, and increment it by 1.
+    #    If not, create a new one with version 1.
+    group_file = os.path.join(group_extension_folder_path, f"{object_id}.json")
+    if not os.path.exists(group_file):
+        fresh_file_data = {
+            "id": object_id,
+            "name": versioning_data["object_name"],
+            "versions": [
+                {
+                    "id": 1,
+                    "node_data": storage_version_data["node_data"]
+                }
+            ],
+        }
+        with open(group_file, 'w') as f:
+            json.dump(fresh_file_data, f, indent=4)
+        # TODO: Return object ID and version ID to update the UI.
+    else:
+        pass
+    
+    return web.json_response({"success": True})
