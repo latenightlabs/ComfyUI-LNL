@@ -29,7 +29,7 @@ function xxx(menuItem, options, e, menu, groupNode, extra) {
     console.log(`menu: ${JSON.stringify(menuItem.title)}`);
 }
 
-async function saveGroup(menuItem, options, e, menu, groupNode) {
+async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
     const groupHasVersioningData = groupNode.versioning_data !== undefined;
 
     const groupData = {
@@ -90,7 +90,7 @@ async function saveGroup(menuItem, options, e, menu, groupNode) {
     // Add group data
     groupData.group = groupNode.serialize();
 
-    const jsonData = await versionManager.saveGroupData(groupData);
+    const jsonData = await versionManager.saveGroupData(groupData, saveAsNew);
     if (jsonData.error) {
         console.error(jsonData.error);
         return;
@@ -100,7 +100,8 @@ async function saveGroup(menuItem, options, e, menu, groupNode) {
 }
 
 function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
-    console.log("saveGroupAsNewVersion");
+    const saveAsNew = true;
+    saveGroup(menuItem, options, e, menu, groupNode, saveAsNew);
 }
 
 async function loadGroup(menuItem, options, e, menu, groupNode) {

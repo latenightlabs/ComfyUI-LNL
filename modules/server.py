@@ -44,6 +44,7 @@ async def route_hander_method(request):
     
         return web.json_response(data)
 
+# TODO: See not to return absolutely everything loaded from the group file if not needed
 @server.PromptServer.instance.routes.post("/save_group_data")
 async def route_hander_method(request):
     save_as_new = request.query.get('saveAsNew') == "true"
@@ -59,9 +60,6 @@ async def route_hander_method(request):
         object_id = str(uuid4())
         versioning_data["object_id"] = object_id
 
-    print(f"versioning_data: {versioning_data}")
-    # 1) If the object_id file exists, then find the latest version in it, and increment it by 1.
-    #    If not, create a new one with version 1.
     group_file = os.path.join(group_extension_folder_path, f"{versioning_data['object_id']}.json")
     if not os.path.exists(group_file):
         object_version = 1
@@ -88,8 +86,17 @@ async def route_hander_method(request):
         with open(group_file, 'r') as f:
             data = json.load(f)
             if save_as_new:
-                print("Saving as new")
-                pass
+                data["versions"] = sorted(data["versions"], key=lambda x: x["id"], reverse=True)
+                new_version_id = data["versions"][0]["id"] + 1
+                new_version_data = {
+                    "id": new_version_id,
+                    "node_data": storage_version_data["node_data"]
+                }
+                new_version_data["node_data"]["group"]["versioning_data"]["object_version"] = new_version_id
+                data["versions"].insert(0, new_version_data)
+                with open(group_file, 'w') as f:    
+                    json.dump(data, f, indent=4)
+                return web.json_response(data)
             else:
                 object_version = versioning_data["object_version"]
                 versions = data["versions"]
@@ -103,4 +110,3 @@ async def route_hander_method(request):
                     json.dump(data, f, indent=4)
                 return web.json_response(data)
 
-            return web.json_response({"success": True})   

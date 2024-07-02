@@ -4,12 +4,6 @@ import { fetchGroupsData, fetchGroupData, saveGroupData } from "./utils.js";
 
 export default class VersionManager {
     
-    // constructor() {
-    //     this.version = 0;
-    //     this.versionKey = 'EnhancedGroupsVersion';
-    //     this.version = parseInt(localStorage.getItem(this.versionKey));
-    // }
-
     #versionedGroups = [];
     
     async loadVersionedGroups() {
@@ -28,18 +22,16 @@ export default class VersionManager {
             return result;
         }
 
-        console.log(`result: ${JSON.stringify(result)}`)
-        console.log(`this.#versionedGroups: ${JSON.stringify(this.#versionedGroups)}`)
+        const newVersionedGroupData = {
+            id: result.id,
+            name: result.name,
+            versions: result.versions.map(v => v.id ),
+        };
         const index = this.#versionedGroups.findIndex(obj => obj.id === result.id);
         if (index === -1) {
-            const newVersionedGroupData = {
-                id: result.id,
-                name: result.name,
-                versions: result.versions.map(v => v.id ),
-            };
             this.#versionedGroups.push(newVersionedGroupData);
         } else {
-            // Implement for updating versioned group data which already exists
+            this.#versionedGroups[index] = newVersionedGroupData;
         }
 
         return result;
