@@ -25,7 +25,6 @@ async def route_hander_method(request):
     for file in json_files:
         with open(os.path.join(group_extension_folder_path, file), 'r') as f:
             data = json.load(f)
-            data["id"] = file.split(".")[0]
             data["versions"] = list(map(lambda x: x["id"], sorted(data["versions"], key=lambda x: x["id"], reverse=True)))
             group_data.append(data)
     group_data = sorted(group_data, key=lambda x: x["name"])
