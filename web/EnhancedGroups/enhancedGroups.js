@@ -137,7 +137,11 @@ function extendCanvasMenu() {
                             {
                                 content: "Versioned group", has_submenu: true, submenu: {
                                     title: "Groups",
-                                    options: versionManager.versionedGroups().map(group => ({ content: group.name, callback: loadGroup, extra: { group, touchPos } })),
+                                    options: versionManager.versionedGroups().map(group => {
+                                        const latestVersion = group.versions[0] || "No versions available";
+                                        const groupTitle = `${group.name} (v${latestVersion})`;
+                                        return { content: groupTitle, callback: loadGroup, extra: { group, touchPos } };
+                                    }),
                                 }
                             },
                         ],
