@@ -22,9 +22,14 @@ export default class VersionManager {
         return result;
     }
 
-    async saveGroupData(groupData) {
-        const result = await saveGroupData(groupData);
+    async saveGroupData(groupData, saveAsNew) {
+        const result = await saveGroupData(groupData, saveAsNew);
+        if (result.error) {
+            return result;
+        }
 
+        console.log(`result: ${JSON.stringify(result)}`)
+        console.log(`this.#versionedGroups: ${JSON.stringify(this.#versionedGroups)}`)
         const index = this.#versionedGroups.findIndex(obj => obj.id === result.id);
         if (index === -1) {
             const newVersionedGroupData = {

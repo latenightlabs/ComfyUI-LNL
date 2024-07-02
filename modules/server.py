@@ -47,6 +47,7 @@ async def route_hander_method(request):
 
 @server.PromptServer.instance.routes.post("/save_group_data")
 async def route_hander_method(request):
+    save_as_new = request.query.get('saveAsNew') == "true"
     json_data = await request.json()
     if not "group_data" in json_data:
         return web.json_response({"error": "Invalid data"})
@@ -59,13 +60,14 @@ async def route_hander_method(request):
         object_id = str(uuid4())
         versioning_data["object_id"] = object_id
 
+    print(f"versioning_data: {versioning_data}")
     # 1) If the object_id file exists, then find the latest version in it, and increment it by 1.
     #    If not, create a new one with version 1.
-    group_file = os.path.join(group_extension_folder_path, f"{object_id}.json")
+    group_file = os.path.join(group_extension_folder_path, f"{versioning_data['object_id']}.json")
     if not os.path.exists(group_file):
         object_version = 1
         versioning_data = {
-            "object_id": object_id,
+            "object_id": versioning_data["object_id"],
             "object_name": versioning_data["object_name"],
             "object_version": object_version
         }
@@ -84,5 +86,22 @@ async def route_hander_method(request):
             json.dump(fresh_file_data, f, indent=4)
         return web.json_response(fresh_file_data)
     else:
-        # Make sure to save incremented version to group.versioning_data
-        return web.json_response({"success": True})   
+        with open(group_file, 'r') as f:
+            data = json.load(f)
+            if save_as_new:
+                print("Saving as new")
+                pass
+            else:
+                object_version = versioning_data["object_version"]
+                versions = data["versions"]
+                index = next((i for i, version in enumerate(versions) if version["id"] == object_version), -1)
+                if index == -1:
+                    return web.json_response({"error": "Version not found"})
+                
+                versions[index]["node_data"] = storage_version_data["node_data"]
+                data["versions"] = versions
+                with open(group_file, 'w') as f:    
+                    json.dump(data, f, indent=4)
+                return web.json_response(data)
+
+            return web.json_response({"success": True})   

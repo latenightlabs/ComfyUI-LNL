@@ -24,11 +24,11 @@ export async function fetchGroupData(groupId) {
     return jsonData;
 }
 
-export async function saveGroupData(groupData) {
+export async function saveGroupData(groupData, saveAsNew) {
     const body = {
         group_data: groupData
     };
-    const result = await api.fetchApi("/save_group_data", { method: "POST", body: JSON.stringify(body) });
+    const result = await api.fetchApi(`/save_group_data?saveAsNew=${saveAsNew === true}`, { method: "POST", body: JSON.stringify(body) });
     if (result.error) {
         console.error(`saveGroupData error: ${result.error}`);
         return;
@@ -188,7 +188,12 @@ export function addGroupVersionToGraph(app, data, touchPos) {
 }
 
 export function updateGroupFromJSONData(group, data) {
-    if (!data.versions || data.versions.length !== 1 || !data.versions[0].node_data || !data.versions[0].node_data.group || !data.versions[0].node_data.group.versioning_data) {
+    if (!data.versions ||
+        data.versions.length !== 1 ||
+        !data.versions[0].node_data ||
+        !data.versions[0].node_data.group ||
+        !data.versions[0].node_data.group.versioning_data)
+    {
         return;
     }
     group.versioning_data = data.versions[0].node_data.group.versioning_data;

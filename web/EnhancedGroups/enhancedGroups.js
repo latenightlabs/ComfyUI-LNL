@@ -91,7 +91,11 @@ async function saveGroup(menuItem, options, e, menu, groupNode) {
     groupData.group = groupNode.serialize();
 
     const jsonData = await versionManager.saveGroupData(groupData);
-    console.log(`jsonData: ${JSON.stringify(jsonData)}`);
+    if (jsonData.error) {
+        console.error(jsonData.error);
+        return;
+    }
+    
     updateGroupFromJSONData(groupNode, jsonData);
 }
 
