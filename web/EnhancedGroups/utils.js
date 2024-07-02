@@ -38,14 +38,25 @@ export async function saveGroupData(groupData, saveAsNew) {
 }
 
 // Litegraph utils
-export function addGroupVersionToGraph(app, data, touchPos) {
-    const latestVersionData = data["versions"][0];
-    if (!latestVersionData) {
+export function addGroupVersionToGraph(app, data, groupNodeSelected, touchPos, groupVersion) {
+    const groupIndex = data["versions"].findIndex((o) => o?.id === groupVersion);
+    if (groupIndex === -1) {
+        groupIndex = 0;
+    }
+    const specificVersionData = data["versions"][groupIndex];
+    if (!specificVersionData) {
         return;
     }
-    const groupVersionData = latestVersionData["node_data"];
+    const groupVersionData = specificVersionData["node_data"];
     if (!groupVersionData) {
         return;
+    }
+    
+    // Remove the existing group and its nodes if we're loading another (or reload the same) version of the same group
+    if (groupNodeSelected) {
+        LGraphCanvas.active_canvas.selected_nodes = groupNodeSelected._nodes;
+        LGraphCanvas.active_canvas.deleteSelectedNodes();
+        LGraphCanvas.onMenuNodeRemove(null, null, null, null, groupNodeSelected);
     }
     
     /// Recalculate positions based on click coordinates which tell us where the
@@ -57,6 +68,9 @@ export function addGroupVersionToGraph(app, data, touchPos) {
     }
 
     {
+        if (!touchPos && groupNodeSelected) {
+            touchPos = [groupNodeSelected.pos[0], groupNodeSelected.pos[1] + groupNodeSelected.size[1]];
+        }
         // 1) Make node positions relative to group's
         for (let i = 0; i < nodes.length; ++i) {
             const node = nodes[i];
@@ -168,7 +182,7 @@ export function addGroupVersionToGraph(app, data, touchPos) {
         const versioningData = {
             object_id: data.id,
             object_name: data.name,
-            object_version: latestVersionData.id,
+            object_version: specificVersionData.id,
         };
         group.versioning_data = versioningData;
 
@@ -189,7 +203,7 @@ export function addGroupVersionToGraph(app, data, touchPos) {
 
 export function updateGroupFromJSONData(group, data) {
     if (!data.versions ||
-        data.versions.length !== 1 ||
+        data.versions.length === 0 ||
         !data.versions[0].node_data ||
         !data.versions[0].node_data.group ||
         !data.versions[0].node_data.group.versioning_data)

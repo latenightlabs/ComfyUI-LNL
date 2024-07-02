@@ -33,7 +33,7 @@ async def route_hander_method(request):
 
 @server.PromptServer.instance.routes.get("/fetch_group_data")
 async def route_hander_method(request):
-    group_id = request.query.get('groupId')
+    group_id = request.query.get("groupId")
     group_file = os.path.join(group_extension_folder_path, f"{group_id}.json")
     if not os.path.exists(group_file):
         return web.json_response({"error": "Group data not found"})
@@ -47,7 +47,7 @@ async def route_hander_method(request):
 # TODO: See not to return absolutely everything loaded from the group file if not needed
 @server.PromptServer.instance.routes.post("/save_group_data")
 async def route_hander_method(request):
-    save_as_new = request.query.get('saveAsNew') == "true"
+    save_as_new = request.query.get("saveAsNew") == "true"
     json_data = await request.json()
     if not "group_data" in json_data:
         return web.json_response({"error": "Invalid data"})

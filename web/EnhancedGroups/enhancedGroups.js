@@ -110,7 +110,7 @@ async function loadGroup(menuItem, options, e, menu, groupNode) {
         return;
     }
 
-    addGroupVersionToGraph(app, data, menuItem.extra.touchPos);
+    addGroupVersionToGraph(app, data, groupNode, menuItem.extra.touchPos, menuItem.extra.groupVersion);
 }
 
 function extendCanvasMenu() {
@@ -141,7 +141,7 @@ function extendCanvasMenu() {
                                     options: versionManager.versionedGroups().map(group => {
                                         const latestVersion = group.versions[0] || "No versions available";
                                         const groupTitle = `${group.name} (v${latestVersion})`;
-                                        return { content: groupTitle, callback: loadGroup, extra: { group, touchPos } };
+                                        return { content: groupTitle, callback: loadGroup, extra: { group, touchPos, groupVersion: latestVersion } };
                                     }),
                                 }
                             },
@@ -200,25 +200,33 @@ function extendGroupContextMenu() {
             { content: "Save", callback: saveGroup },
         ];
         if (groupHasVersioningData) {
+            // Disable save if we're dealing with an older version
+
+            let optionsObjects = [];
+            const groupIndex = versionManager.versionedGroups().findIndex(obj => obj.id === group.versioning_data.object_id);
+            if (groupIndex !== -1) {
+                const currentGroupData = versionManager.versionedGroups()[groupIndex];
+                optionsObjects = currentGroupData.versions.map(groupVersion => {
+                    const groupTitle = `${currentGroupData.name} (v${groupVersion})`;
+                    return { content: groupTitle, callback: loadGroup, extra: { group: currentGroupData, touchPos: undefined, groupVersion } };
+                });
+            }
             const versionedGroupOptions = [
                 { content: "Save as new version", callback: saveGroupAsNewVersion },
                 {
                     content: "Load version", has_submenu: true, submenu: {
                         title: "Available Versions",
                         extra: group,
-                        options: [
-                            { content: "Version 1", callback: xxx },
-                            { content: "Version 2", callback: xxx }
-                        ]
+                        options: optionsObjects
                     }
                 },
                 {
                     content: "Delete Version", has_submenu: true, submenu: {
                         title: "Available Versions",
-                        options: [
-                            { content: "Version 1", callback: xxx },
-                            { content: "Version 2", callback: xxx }
-                        ]
+                        options: optionsObjects.map(obj => {
+                            // TODO: Map to deletion function
+                            return { content: obj.content, callback: xxx, extra: obj.extra };
+                        })
                     }
                 },
             ];
