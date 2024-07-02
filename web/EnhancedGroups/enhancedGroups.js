@@ -2,7 +2,7 @@
 
 import { app } from "../../../scripts/app.js"; // For LiteGraph
 
-import { addGroupVersionToGraph } from "./utils.js";
+import { addGroupVersionToGraph, updateGroupFromJSONData } from "./utils.js";
 
 import VersionManager from "./versionManager.js";
 const versionManager = new VersionManager();
@@ -29,7 +29,7 @@ function xxx(menuItem, options, e, menu, groupNode, extra) {
     console.log(`menu: ${JSON.stringify(menuItem.title)}`);
 }
 
-function saveGroup(menuItem, options, e, menu, groupNode) {
+async function saveGroup(menuItem, options, e, menu, groupNode) {
     const groupHasVersioningData = groupNode.versioning_data !== undefined;
 
     const groupData = {
@@ -90,7 +90,9 @@ function saveGroup(menuItem, options, e, menu, groupNode) {
     // Add group data
     groupData.group = groupNode.serialize();
 
-    versionManager.saveGroupData(groupData);
+    const jsonData = await versionManager.saveGroupData(groupData);
+    console.log(`jsonData: ${JSON.stringify(jsonData)}`);
+    updateGroupFromJSONData(groupNode, jsonData);
 }
 
 function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {

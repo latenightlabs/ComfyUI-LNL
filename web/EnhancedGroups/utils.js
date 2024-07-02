@@ -34,7 +34,7 @@ export async function saveGroupData(groupData) {
         return;
     }
     const jsonData = await result.json();
-    console.log(`jsonData: ${JSON.stringify(jsonData)}`);
+    return jsonData;
 }
 
 // Litegraph utils
@@ -185,4 +185,11 @@ export function addGroupVersionToGraph(app, data, touchPos) {
         app.graph._version++;
         app.graph.setDirtyCanvas(true, true);
     }
+}
+
+export function updateGroupFromJSONData(group, data) {
+    if (!data.versions || data.versions.length !== 1 || !data.versions[0].node_data || !data.versions[0].node_data.group || !data.versions[0].node_data.group.versioning_data) {
+        return;
+    }
+    group.versioning_data = data.versions[0].node_data.group.versioning_data;
 }

@@ -51,36 +51,38 @@ async def route_hander_method(request):
     if not "group_data" in json_data:
         return web.json_response({"error": "Invalid data"})
 
-    print(f"json_data: {json_data}")
     group_data = json_data["group_data"]
     storage_version_data = setup_version_data(group_data)
-    print(f"storage_version_data: {storage_version_data}")
 
     versioning_data = group_data["versioning_data"]
     if not "object_id" in versioning_data:
         object_id = str(uuid4())
         versioning_data["object_id"] = object_id
 
-    print(f"versioning_data: {versioning_data}")
-
     # 1) If the object_id file exists, then find the latest version in it, and increment it by 1.
     #    If not, create a new one with version 1.
     group_file = os.path.join(group_extension_folder_path, f"{object_id}.json")
     if not os.path.exists(group_file):
+        object_version = 1
+        versioning_data = {
+            "object_id": object_id,
+            "object_name": versioning_data["object_name"],
+            "object_version": object_version
+        }
+        storage_version_data["node_data"]["group"]["versioning_data"] = versioning_data
         fresh_file_data = {
             "id": object_id,
             "name": versioning_data["object_name"],
             "versions": [
                 {
-                    "id": 1,
+                    "id": object_version,
                     "node_data": storage_version_data["node_data"]
                 }
             ],
         }
         with open(group_file, 'w') as f:
             json.dump(fresh_file_data, f, indent=4)
-        # TODO: Return object ID and version ID to update the UI.
+        return web.json_response(fresh_file_data)
     else:
-        pass
-    
-    return web.json_response({"success": True})
+        # Make sure to save incremented version to group.versioning_data
+        return web.json_response({"success": True})   
