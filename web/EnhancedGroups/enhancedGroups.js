@@ -57,7 +57,7 @@ async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
             if (node.inputs) {
                 node.inputs.forEach(input => {
                     if (input.link) {
-                        if (groupNodeIds.includes(input.link)) {
+                        if (!groupNodeIds.includes(input.link)) {
                             groupLinkIds.add(input.link);
                         }
                     }
@@ -68,7 +68,7 @@ async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
                 node.outputs.forEach(output => {
                     if (output.links) {
                         output.links.forEach(link => {
-                            if (groupNodeIds.includes(link)) {
+                            if (!groupNodeIds.includes(link)) {
                                 groupLinkIds.add(link);
                             }
                         });
