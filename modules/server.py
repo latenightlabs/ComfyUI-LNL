@@ -1,6 +1,7 @@
 import server
 web = server.web
 
+import time
 import json
 from uuid import uuid4
 
@@ -25,7 +26,7 @@ async def route_hander_method(request):
     for file in json_files:
         with open(os.path.join(group_extension_folder_path, file), 'r') as f:
             data = json.load(f)
-            data["versions"] = list(map(lambda x: x["id"], sorted(data["versions"], key=lambda x: x["id"], reverse=True)))
+            data["versions"] = list(map(lambda x: {"id": x["id"], "timestamp": x["last_change_timestamp"]}, sorted(data["versions"], key=lambda x: x["id"], reverse=True)))
             group_data.append(data)
     group_data = sorted(group_data, key=lambda x: x["name"])
     
@@ -60,6 +61,7 @@ async def route_hander_method(request):
         object_id = str(uuid4())
         versioning_data["object_id"] = object_id
 
+    last_change_timestamp = int(time.time() * 1000)
     group_file = os.path.join(group_extension_folder_path, f"{versioning_data['object_id']}.json")
     if not os.path.exists(group_file):
         object_version = 1
@@ -70,11 +72,12 @@ async def route_hander_method(request):
         }
         storage_version_data["node_data"]["group"]["versioning_data"] = versioning_data
         fresh_file_data = {
-            "id": object_id,
+            "id": versioning_data["object_id"],
             "name": versioning_data["object_name"],
             "versions": [
                 {
                     "id": object_version,
+                    "last_change_timestamp": last_change_timestamp,
                     "node_data": storage_version_data["node_data"]
                 }
             ],
@@ -90,6 +93,7 @@ async def route_hander_method(request):
                 new_version_id = data["versions"][0]["id"] + 1
                 new_version_data = {
                     "id": new_version_id,
+                    "last_change_timestamp": last_change_timestamp,
                     "node_data": storage_version_data["node_data"]
                 }
                 new_version_data["node_data"]["group"]["versioning_data"]["object_version"] = new_version_id
@@ -105,6 +109,7 @@ async def route_hander_method(request):
                     return web.json_response({"error": "Version not found"})
                 
                 versions[index]["node_data"] = storage_version_data["node_data"]
+                versions[index]["last_change_timestamp"] = last_change_timestamp
                 data["versions"] = versions
                 with open(group_file, 'w') as f:    
                     json.dump(data, f, indent=4)

@@ -139,7 +139,7 @@ function extendCanvasMenu() {
                                 content: "Versioned group", has_submenu: true, submenu: {
                                     title: "Groups",
                                     options: versionManager.versionedGroups().map(group => {
-                                        const latestVersion = group.versions[0] || "No versions available";
+                                        const latestVersion = group.versions[0]["id"] || "No versions available";
                                         const groupTitle = `${group.name} (v${latestVersion})`;
                                         return { content: groupTitle, callback: loadGroup, extra: { group, touchPos, groupVersion: latestVersion } };
                                     }),
@@ -207,7 +207,8 @@ function extendGroupContextMenu() {
             if (groupIndex !== -1) {
                 const currentGroupData = versionManager.versionedGroups()[groupIndex];
                 optionsObjects = currentGroupData.versions.map(groupVersion => {
-                    const groupTitle = `${currentGroupData.name} (v${groupVersion})`;
+                    const lastModificationDatetime = new Date(groupVersion.timestamp).toLocaleString();
+                    const groupTitle = `v${groupVersion.id} [${lastModificationDatetime}]`;
                     return { content: groupTitle, callback: loadGroup, extra: { group: currentGroupData, touchPos: undefined, groupVersion } };
                 });
             }

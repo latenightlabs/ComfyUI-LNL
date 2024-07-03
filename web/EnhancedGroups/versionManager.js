@@ -25,7 +25,7 @@ export default class VersionManager {
         const newVersionedGroupData = {
             id: result.id,
             name: result.name,
-            versions: result.versions.map(v => v.id),
+            versions: result.versions.map(v => ({id: v.id, timestamp: v.last_change_timestamp})),
         };
         const index = this.#versionedGroups.findIndex(obj => obj.id === result.id);
         if (index === -1) {
