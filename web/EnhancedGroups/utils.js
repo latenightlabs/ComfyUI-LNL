@@ -102,6 +102,9 @@ export function addGroupVersionToGraph(app, data, groupNodeSelected, touchPos, g
     if (links && links.constructor === Array) {
         for (let i = 0; i < links.length; ++i) {
             const link = links[i];
+            if (link === null) {
+                continue;
+            }
             linkIDMapping[link[0]] = app.graph.last_link_id + i + 1;
             link[0] = linkIDMapping[link[0]];
             link[1] = nodeIDMapping[link[1]];

@@ -84,7 +84,7 @@ async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
                 return null;
             }
             return app.graph.links[linkIndex].serialize();
-        });
+        }).filter(link => link !== null);
     }
 
     // Add group data
