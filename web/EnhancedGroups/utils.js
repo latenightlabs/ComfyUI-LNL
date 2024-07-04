@@ -39,9 +39,10 @@ export async function saveGroupData(groupData, saveAsNew) {
 
 // Litegraph utils
 export function addGroupVersionToGraph(app, data, groupNodeSelected, touchPos, groupVersion) {
-    let groupIndex = data["versions"].findIndex((o) => o?.id === groupVersion.id);
+    const groupIndex = data["versions"].findIndex((o) => o?.id === groupVersion.id);
     if (groupIndex === -1) {
-        groupIndex = 0;
+        console.error(`Group version ${groupVersion.id} not found in group data`);
+        return;
     }
     const specificVersionData = data["versions"][groupIndex];
     if (!specificVersionData) {
