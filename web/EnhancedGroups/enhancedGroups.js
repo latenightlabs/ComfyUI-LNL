@@ -52,6 +52,7 @@ async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
     // Process and remove links that are not between group nodes
     {
         const groupLinkIds = new Set([]);
+        // TODO: Make sure that we're not saving links that are not between group nodes
         const groupNodeIds = groupNode._nodes.map(node => node.id);
         for (const node of groupNode._nodes) {
             if (node.inputs) {
@@ -160,12 +161,6 @@ function extendGroupContextMenu() {
             this.recomputeInsideNodes();
             initialGroupNodeRecomputed = true;
         }
-        // console.log(`node.title: ${this.title}, node.id: ${this.id}, node._bounding: ${this._bounding}, node.color: ${this.color}, node.font_size: ${this.font_size}`);
-        // console.log(`node is group: ${this instanceof LGraphGroup}`)
-        // console.log(`this._nodes: ${this._nodes.length}`)
-        for (const node of this._nodes) {
-            // console.log(`subnode: ${node.title}, ${node.id}, ${node.pos}, ${node.size}, ${node.color}, ${node.font_size}`);
-        }
         const object = serialize.apply(this, arguments);
         if (this.versioning_data) {
             const versioningData = {
@@ -196,8 +191,6 @@ function extendGroupContextMenu() {
             { content: "Save", callback: saveGroup },
         ];
         if (groupHasVersioningData) {
-            // Disable save if we're dealing with an older version
-
             let optionsObjects = [];
             const groupIndex = versionManager.versionedGroups().findIndex(obj => obj.id === group.versioning_data.object_id);
             if (groupIndex !== -1) {
