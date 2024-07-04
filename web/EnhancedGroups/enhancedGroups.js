@@ -94,6 +94,7 @@ async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
     }
     
     updateGroupFromJSONData(groupNode, jsonData);
+    groupNode.setDirtyCanvas(true, true);
 }
 
 function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
@@ -236,9 +237,48 @@ function extendGroupContextMenu() {
     };
 }
 
+function extendGroupDrawingContext() {
+    const drawGroups = LGraphCanvas.prototype.drawGroups;
+    LGraphCanvas.prototype.drawGroups = function(canvas, ctx) {
+        drawGroups.apply(this, arguments);
+        if (!app.graph) {
+            return;
+        }
+
+        var groups = app.graph._groups;
+
+        ctx.save();
+        ctx.globalAlpha = 0.5 * app.editor_alpha;
+
+        for (var i = 0; i < groups.length; ++i) {
+            var group = groups[i];
+
+            if (!LGraphCanvas.active_canvas ||
+                !LiteGraph.overlapBounding(LGraphCanvas.active_canvas.visible_area, group._bounding) ||
+                !group.versioning_data
+            ) {
+                continue;
+            }
+
+            ctx.fillStyle = group.color || "#335";
+            ctx.strokeStyle = group.color || "#335";
+            var pos = group._pos;
+            var size = group._size;
+            var font_size = group.font_size || LiteGraph.DEFAULT_GROUP_FONT_SIZE;
+        
+            ctx.font = font_size + "px Arial";
+            ctx.textAlign = "right";
+            const infoText = `v${group.versioning_data.object_version}`;
+            ctx.fillText(infoText, pos[0] - 4 + size[0], pos[1] + font_size);
+        }
+        ctx.restore();
+    }
+}
+
 export async function registerGroupExtensions() {
     extendGroupContextMenu();
     extendCanvasMenu();
+    extendGroupDrawingContext();
 
     await versionManager.loadVersionedGroups();
 }
