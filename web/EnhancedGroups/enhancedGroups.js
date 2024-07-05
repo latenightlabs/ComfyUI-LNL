@@ -136,6 +136,17 @@ function extendCanvasMenu() {
 }
 
 function extendGroupContextMenu() {
+    function removeVersioningDataIfNeeded(groupNode) {
+        // In case we've loaded a versioned group which doesn't have history
+        // in the version manager (e.g. a workflow was transferred from another
+        // machine without the respective JSON file), we should remove the
+        // versioning data and make it behave as a regular group.
+        if (groupNode.versioning_data && !versionManager.versionedGroups().find(obj => obj.id === groupNode.versioning_data.object_id)) {
+            delete groupNode.versioning_data;
+        }
+        app.graph.setDirtyCanvas(true, true);
+    }
+
     const serialize = LGraphGroup.prototype.serialize;
     LGraphGroup.prototype.serialize = function() {
         if (!initialGroupNodeRecomputed) {
@@ -151,6 +162,7 @@ function extendGroupContextMenu() {
             };
             object.versioning_data = versioningData;
         }
+        removeVersioningDataIfNeeded(object);
         return object;
     };
 
@@ -160,6 +172,7 @@ function extendGroupContextMenu() {
         if (data.versioning_data) {
             this.versioning_data = data.versioning_data;
         }
+        removeVersioningDataIfNeeded(this);
     };
 
     const oldGroupContextMenu = LGraphCanvas.prototype.getGroupMenuOptions;
