@@ -9,26 +9,6 @@ const versionManager = new VersionManager();
 
 var initialGroupNodeRecomputed = false;
 
-function xxx(menuItem, options, e, menu, groupNode, extra) {
-    console.log(`groupNode: ${groupNode}`);
-    console.log(`menuItem: ${menuItem.content}`);
-    console.log(`extra.title: ${JSON.stringify(extra)}`);
-
-    if (menu.parentMenu) {
-        console.log(`menu.parentMenu: ${menu.parentMenu.extra}`);
-    }
-    
-    // console.log(`groupNode: ${JSON.stringify(groupNode)}`);
-    // console.log(`item: ${JSON.stringify(menuItemContent)}, options: ${JSON.stringify(options)}, e: ${JSON.stringify(e)}, menu: ${JSON.stringify(menu)}, node: ${JSON.stringify(node)}`);
-    console.log(`item: ${JSON.stringify(menuItem)}, node.title: ${groupNode.title}, node.id: ${groupNode.id}, node._bounding: ${groupNode._bounding}, node.color: ${groupNode.color}, node.font_size: ${groupNode.font_size}`);
-    console.log(`node is group: ${groupNode instanceof LGraphGroup}`);
-    // iterate over group nodes
-    for (const node of groupNode._nodes) {
-        console.log(`subnode: ${node.title}, ${node.id}, ${node.pos}, ${node.size}, ${node.color}, ${node.font_size}`);
-    }
-    console.log(`menu: ${JSON.stringify(menuItem.title)}`);
-}
-
 async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
     const groupHasVersioningData = groupNode.versioning_data !== undefined;
 
