@@ -225,7 +225,7 @@ function extendGroupDrawingContext() {
     
         ctx.font = font_size + "px Arial";
         ctx.textAlign = "right";
-        const infoText = `v${group.versioning_data.object_version}`;
+        const infoText = `[${group.versioning_data.object_name} (v${group.versioning_data.object_version})]`;
         ctx.fillText(infoText, pos[0] - 4 + size[0], pos[1] + font_size);
     }
     // function drawButtons(ctx, group) {
