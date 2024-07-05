@@ -216,37 +216,6 @@ function extendGroupContextMenu() {
 }
 
 function extendGroupDrawingContext() {
-    function drawVersionText(ctx, group) {
-        ctx.fillStyle = group.color || "#335";
-        ctx.strokeStyle = group.color || "#335";
-        var pos = group._pos;
-        var size = group._size;
-        var font_size = group.font_size || LiteGraph.DEFAULT_GROUP_FONT_SIZE;
-    
-        ctx.font = font_size + "px Arial";
-        ctx.textAlign = "right";
-        const infoText = `[${group.versioning_data.object_name} (v${group.versioning_data.object_version})]`;
-        ctx.fillText(infoText, pos[0] - 4 + size[0], pos[1] + font_size);
-    }
-    // function drawButtons(ctx, group) {
-    //     var pos = group._pos;
-    //     var size = group._size;
-
-    //     const refreshButtonImageUrl = lnlGetUrl("../images/goto_start.png", import.meta.url);
-    //     const image = new Image();
-    //     image.src = refreshButtonImageUrl;
-
-    //     image.onload = () => {
-    //         const iconX = 50;
-    //         const iconY = 50;
-    //         const iconWidth = image.width;
-    //         const iconHeight = image.height;
-    
-    //         // ctx.drawImage(image, iconX, iconY);
-    //         ctx.drawImage(image, pos[0], pos[1], 20, 20);
-    //     };
-    // }
-    
     const drawGroups = LGraphCanvas.prototype.drawGroups;
     LGraphCanvas.prototype.drawGroups = function(canvas, ctx) {
         drawGroups.apply(this, arguments);
@@ -269,8 +238,16 @@ function extendGroupDrawingContext() {
                 continue;
             }
 
-            drawVersionText(ctx, group);
-            // drawButtons(ctx, group);
+            ctx.fillStyle = group.color || "#335";
+            ctx.strokeStyle = group.color || "#335";
+            var pos = group._pos;
+            var size = group._size;
+            var font_size = group.font_size || LiteGraph.DEFAULT_GROUP_FONT_SIZE;
+        
+            ctx.font = (font_size - 10) + "px Arial";
+            ctx.textAlign = "right";
+            const infoText = `[${group.versioning_data.object_name} (v${group.versioning_data.object_version})]`;
+            ctx.fillText(infoText, pos[0] - 4 + size[0], pos[1] + font_size);
         }
         ctx.restore();
     }
