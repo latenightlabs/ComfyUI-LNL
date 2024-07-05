@@ -194,16 +194,22 @@ function extendGroupContextMenu() {
         if (groupHasVersioningData) {
             let optionsObjects = [];
             const groupIndex = versionManager.versionedGroups().findIndex(obj => obj.id === group.versioning_data.object_id);
+            let currentGroupData = null;
             if (groupIndex !== -1) {
-                const currentGroupData = versionManager.versionedGroups()[groupIndex];
+                currentGroupData = versionManager.versionedGroups()[groupIndex];
                 optionsObjects = currentGroupData.versions.map(groupVersion => {
                     const lastModificationDatetime = new Date(groupVersion.timestamp).toLocaleString();
                     const groupTitle = `v${groupVersion.id} [${lastModificationDatetime}]`;
                     return { content: groupTitle, callback: loadGroup, extra: { group: currentGroupData, touchPos: undefined, groupVersion } };
                 });
             }
+            const currentGroupVersion = currentGroupData.versions.find(v => v.id === group.versioning_data.object_version);
+            if (!currentGroupVersion) {
+                return enhancedContextMenu;
+            }
             const versionedGroupOptions = [
                 { content: "Save as new version", callback: saveGroupAsNewVersion },
+                null,
                 {
                     content: "Load version", has_submenu: true, submenu: {
                         title: "Available Versions",
@@ -211,15 +217,7 @@ function extendGroupContextMenu() {
                         options: optionsObjects
                     }
                 },
-                {
-                    content: "Delete Version", has_submenu: true, submenu: {
-                        title: "Available Versions",
-                        options: optionsObjects.map(obj => {
-                            // TODO: Map to deletion function
-                            return { content: obj.content, callback: xxx, extra: obj.extra };
-                        })
-                    }
-                },
+                { content: "Refresh", callback: loadGroup, extra: { group: currentGroupData, touchPos: undefined, groupVersion:currentGroupVersion } },
             ];
             submenuOptions.push(...versionedGroupOptions);
         }
@@ -238,6 +236,37 @@ function extendGroupContextMenu() {
 }
 
 function extendGroupDrawingContext() {
+    function drawVersionText(ctx, group) {
+        ctx.fillStyle = group.color || "#335";
+        ctx.strokeStyle = group.color || "#335";
+        var pos = group._pos;
+        var size = group._size;
+        var font_size = group.font_size || LiteGraph.DEFAULT_GROUP_FONT_SIZE;
+    
+        ctx.font = font_size + "px Arial";
+        ctx.textAlign = "right";
+        const infoText = `v${group.versioning_data.object_version}`;
+        ctx.fillText(infoText, pos[0] - 4 + size[0], pos[1] + font_size);
+    }
+    // function drawButtons(ctx, group) {
+    //     var pos = group._pos;
+    //     var size = group._size;
+
+    //     const refreshButtonImageUrl = lnlGetUrl("../images/goto_start.png", import.meta.url);
+    //     const image = new Image();
+    //     image.src = refreshButtonImageUrl;
+
+    //     image.onload = () => {
+    //         const iconX = 50;
+    //         const iconY = 50;
+    //         const iconWidth = image.width;
+    //         const iconHeight = image.height;
+    
+    //         // ctx.drawImage(image, iconX, iconY);
+    //         ctx.drawImage(image, pos[0], pos[1], 20, 20);
+    //     };
+    // }
+    
     const drawGroups = LGraphCanvas.prototype.drawGroups;
     LGraphCanvas.prototype.drawGroups = function(canvas, ctx) {
         drawGroups.apply(this, arguments);
@@ -260,16 +289,8 @@ function extendGroupDrawingContext() {
                 continue;
             }
 
-            ctx.fillStyle = group.color || "#335";
-            ctx.strokeStyle = group.color || "#335";
-            var pos = group._pos;
-            var size = group._size;
-            var font_size = group.font_size || LiteGraph.DEFAULT_GROUP_FONT_SIZE;
-        
-            ctx.font = font_size + "px Arial";
-            ctx.textAlign = "right";
-            const infoText = `v${group.versioning_data.object_version}`;
-            ctx.fillText(infoText, pos[0] - 4 + size[0], pos[1] + font_size);
+            drawVersionText(ctx, group);
+            // drawButtons(ctx, group);
         }
         ctx.restore();
     }
