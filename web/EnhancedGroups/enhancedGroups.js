@@ -183,10 +183,10 @@ function extendGroupContextMenu() {
                     return { content: groupTitle, callback: loadGroup, extra: { group: currentGroupData, touchPos: undefined, groupVersion } };
                 });
             }
-            const currentGroupVersion = currentGroupData.versions.find(v => v.id === group.versioning_data.object_version);
-            if (!currentGroupVersion) {
+            if (!currentGroupData || !currentGroupData.versions || currentGroupData.versions.length === 0) {
                 return enhancedContextMenu;
             }
+            const currentGroupVersion = currentGroupData.versions.find(v => v.id === group.versioning_data.object_version);
             const versionedGroupOptions = [
                 { content: "Save as new version", callback: saveGroupAsNewVersion },
                 null,
