@@ -142,19 +142,27 @@ export function addGroupVersionToGraph(app, data, groupNodeSelected, touchPos, g
 
     /// Add links
     if (links && links.constructor === Array) {
+        const preparedInitialLinks = [];
         const preparedLinks = [];
         for (let i = 0; i < links.length; ++i) {
             const link_data = links[i];
 
             var link = new LiteGraph.LLink();
             link.configure(link_data);
+            
+            // ComfyUI handles initial loading of links, and adding of links once some exist differently
+            preparedInitialLinks[link.id] = link;
             preparedLinks.push(link);
         }
-        if (!app.graph.links || app.graph.links.constructor !== Array || app.graph.links.length === 0) {
-            app.graph.links = [];
+        if (links.length > 0) {
+            if (!app.graph.links || app.graph.links.constructor !== Array || app.graph.links.length === 0) {
+                app.graph.links = preparedInitialLinks;
+            }
+            else {
+                app.graph.links.push(...preparedLinks);
+            }
+            app.graph.last_link_id += links.length;
         }
-        app.graph.links.push(...preparedLinks);
-        app.graph.last_link_id += links.length;
     }
 
     /// Add nodes
