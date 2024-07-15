@@ -109,49 +109,54 @@ Let's create an empty ComfyUI group by right-clicking an empty canvas, selecting
 
 Add a `Load image` node (use the default `example.png` image pre-installed with ComfyUI), and connect it to a `Preview image` node. Make sure both are inside our group. Right-click inside our group, and select `Edit Group` -> `Versions` -> `Save`.
 
-[TODO 02 image here]
+![Creating a component 01](https://github.com/user-attachments/assets/4a29b1b2-0ec6-498b-bf6f-e5c977746e7c)
 
 Once selected, you'll be asked to enter a component name. Let's call it `First component` and hit `OK`.
 
-[TODO 03 image here]
+![Creating a component 02](https://github.com/user-attachments/assets/33804fbb-afe7-4136-bf8d-a11358b4d06d)
 
-This will create a component out of this group, and you'll see additional info in the group header appear, such as component name and component version.
+This will create a component out of this group, and you'll see additional info in the group header appear, such as the component name and component version.
 
-[TODO 04 image here]
+![Creating a component 03](https://github.com/user-attachments/assets/903ab107-40c4-4785-a8a1-8d57811901f0)
 
 ## Loading a component
-Now, once we have our component created, let's clear the workflow by selecting `Clear` from the ComfyUI menu. Right-click on an empty canvas again, and from `Add Group` -> `Versioned group` select our component. 
+Now, once our component is created, let's clear the workflow by selecting `Clear` from the ComfyUI menu. Right-click on an empty canvas again, and from `Add Group` -> `Versioned group` select our component. 
 
-[TODO 05 image here]
+![Loading a component 01](https://github.com/user-attachments/assets/8b3929a8-938a-4199-98fd-8097c6765fcb)
 
 This will add our previously saved component to the workflow. You can do it a couple of times more, e.g. twice, to add the component on different parts of the canvas.
 
-[TODO 06 image here]
+![Loading a component 02](https://github.com/user-attachments/assets/55756640-c101-4fbf-ab99-4dc8d3593aff)
 
-## Saving a new version of component
+## Saving a new version of the component
 Let's select one of our component's and shuffle the nodes around a bit, maybe even change the group size and name. We'll do it on the left topmost one for our example. 
 
-[TODO 07 image here]
+![Saving a new version of the component 01](https://github.com/user-attachments/assets/7aca3cf4-8061-482f-9767-d6b057e9a935)
 
 Now, once the changes have been made, right-click on the group, and select `Edit Group` -> `Versions` -> `Save as new version`. This will create a new version of our component, version 2. The changes will also be reflected in the group's header.
 
-[TODO 08 image here]
+![Saving a new version of the component 02](https://github.com/user-attachments/assets/124c665e-416f-4a72-8914-75f9b7a32f3f)
 
 Do note that, should you wish to add another component to the workflow, you'll be offered to add the component's last version (as initially mentioned). That would now be the version 2.
 
-[TODO 09 image here]
+![Saving a new version of the component 03](https://github.com/user-attachments/assets/7a813c7b-c62a-4092-a080-e8810e5c3426)
 
 ## Loading a specific component version
-By now, we've already seen how to add the latest component version to our workflow. But, if we want to load a specific version, we must right-click on the group and select `Edit Group` -> `Versions` -> `Load version` and select a specific version. For the sake of navigating different versions easier, each version is labeled with its last change date and time.
+By now, we've already seen how to add the latest component version to our workflow. But if we want to load a specific version, we must right-click on the group and select `Edit Group` -> `Versions` -> `Load version` and select a specific version. To make navigating different versions easier, each version is labeled with its last change date and time.
 
-[TODO 10 image here]
+![Loading a specific component version version 01](https://github.com/user-attachments/assets/cbfa46e2-732e-4f6b-bacd-1e6db9505df3)
 
 In our example, let's load v2 in our top-right component. We'll end up with two v2 `First component` components and one v1 `First component` component.
 
-[TOTO 11 image here]
+![Loading a specific component version 02](https://github.com/user-attachments/assets/0a312bdb-d870-44ae-872b-007bd494172d)
 
 ## Undoing changes to a specific component version
-`Refresh`
+Provided we've made some changes to one of our components but haven't saved them (can be the latest or one of the previous versions) and we want to undo them, we can select `Edit Group` -> `Versions` -> `Refresh`. In our example, we chose to modify the bottom-right component's node locations and the group title. Selecting `Refresh` will reset the changes, or rather reload the v1 of the component.
+
+![Undoing changes to a specific component version](https://github.com/user-attachments/assets/7d2d4c6d-368e-414e-9be8-af9385e55e93)
+
+## Refreshing a component due to a change in a different place
+If we've changed a component in a different part of a workflow (or even in a different workflow altogether), and wish to update a component with that same version, we can select the `Refresh` option from the example above as well.
 
 # Contributing
 Contributions to the Load Video Node project are welcome. Please 
