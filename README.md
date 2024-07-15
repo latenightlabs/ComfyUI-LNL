@@ -96,6 +96,13 @@ Make sure to check them out, they both offer awesome tool suites!
 
 We also use icons for player controls supplied by [Icons8](https://icons8/com).
 
+# Enhanced Groups with Versioning Support for ComfyUI
+This project aims to provide the users with a possibilty to create custom components (specific group versions) which can be reused throughout different projects, or used in different places within the same project. Users can also take advantage of using different versions of the same group/component in the same workflow. Going forward, we're going to be referencing these versioned groups as components.
+
+## Adding a ComfyUI group or a Component
+By right-clicking on an empty canvas, you're presented with a context menu where the `Add Group` option is presented. By default, ComfyUI creates an empty group called `Group` when you tap that option. Due to installing this library, you'll be taken to another submenu offering options of `Empty group` (the default empty group ComfyUI creates) and a `Versioned group`. Selecting the `Versioned group` option, you'll see all of the components listed (the latest version of each component). If you've just installed this library, you won't see any components because we haven't created any yet.
+
+
 
 # Contributing
 Contributions to the Load Video Node project are welcome. Please 
