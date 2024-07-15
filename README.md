@@ -102,7 +102,56 @@ This project aims to provide the users with a possibilty to create custom compon
 ## Adding a ComfyUI group or a Component
 By right-clicking on an empty canvas, you're presented with a context menu where the `Add Group` option is presented. By default, ComfyUI creates an empty group called `Group` when you tap that option. Due to installing this library, you'll be taken to another submenu offering options of `Empty group` (the default empty group ComfyUI creates) and a `Versioned group`. Selecting the `Versioned group` option, you'll see all of the components listed (the latest version of each component). If you've just installed this library, you won't see any components because we haven't created any yet.
 
+![Adding a ComfyUI group or a Component](https://github.com/user-attachments/assets/bfbcf083-93d7-43b7-9701-ea85f4f73450)
 
+## Creating a component
+Let's create an empty ComfyUI group by right-clicking an empty canvas, selecting `Add Group` -> `Empty group`. You can name the group anything you like e.g. `Test group`. Bear in mind that the group name isn't tied to the component name, meaning each component version can have a different group name.
+
+Add a `Load image` node (use the default `example.png` image pre-installed with ComfyUI), and connect it to a `Preview image` node. Make sure both are inside our group. Right-click inside our group, and select `Edit Group` -> `Versions` -> `Save`.
+
+[TODO 02 image here]
+
+Once selected, you'll be asked to enter a component name. Let's call it `First component` and hit `OK`.
+
+[TODO 03 image here]
+
+This will create a component out of this group, and you'll see additional info in the group header appear, such as component name and component version.
+
+[TODO 04 image here]
+
+## Loading a component
+Now, once we have our component created, let's clear the workflow by selecting `Clear` from the ComfyUI menu. Right-click on an empty canvas again, and from `Add Group` -> `Versioned group` select our component. 
+
+[TODO 05 image here]
+
+This will add our previously saved component to the workflow. You can do it a couple of times more, e.g. twice, to add the component on different parts of the canvas.
+
+[TODO 06 image here]
+
+## Saving a new version of component
+Let's select one of our component's and shuffle the nodes around a bit, maybe even change the group size and name. We'll do it on the left topmost one for our example. 
+
+[TODO 07 image here]
+
+Now, once the changes have been made, right-click on the group, and select `Edit Group` -> `Versions` -> `Save as new version`. This will create a new version of our component, version 2. The changes will also be reflected in the group's header.
+
+[TODO 08 image here]
+
+Do note that, should you wish to add another component to the workflow, you'll be offered to add the component's last version (as initially mentioned). That would now be the version 2.
+
+[TODO 09 image here]
+
+## Loading a specific component version
+By now, we've already seen how to add the latest component version to our workflow. But, if we want to load a specific version, we must right-click on the group and select `Edit Group` -> `Versions` -> `Load version` and select a specific version. For the sake of navigating different versions easier, each version is labeled with its last change date and time.
+
+[TODO 10 image here]
+
+In our example, let's load v2 in our top-right component. We'll end up with two v2 `First component` components and one v1 `First component` component.
+
+[TOTO 11 image here]
+
+## Undoing changes to a specific component version
+`Refresh`
 
 # Contributing
 Contributions to the Load Video Node project are welcome. Please 
