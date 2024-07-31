@@ -2,7 +2,7 @@
 name = "comfyui-lnl"
 description = "Frame Selector & Sequence Selection Node for ComfyUI."
 version = "1.0.0"
-license = "LICENSE"
+license = { file = "LICENSE" }
 dependencies = ["opencv-python", "imageio-ffmpeg"]
 
 [project.urls]
