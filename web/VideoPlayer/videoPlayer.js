@@ -215,7 +215,7 @@ function createVideoPreviewWidget(hostNode) {
                         lastTime = previewWidget.videoEl.currentTime;
                         
                         const currentTime = previewWidget.videoEl.currentTime;
-                        const currentFrame = Math.round(currentTime / jsonData.frame_duration);
+                        const currentFrame = parseInt(currentTime / jsonData.frame_duration);
                         hostNode.currentFrameWidget.value = currentFrame;
                         updateSliderValues(hostNode.doubleSliderWidget, hostNode, currentFrame, jsonData.total_frames);
                     }

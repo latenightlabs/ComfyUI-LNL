@@ -264,7 +264,8 @@ def get_video_info(video_path):
         raise Exception(f"Video path does not exist: {full_video_path}")
 
     cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-           '-show_entries', 'stream=r_frame_rate,nb_frames', '-of', 'default=noprint_wrappers=1:nokey=1',
+           '-show_entries', 'stream=r_frame_rate,nb_frames', '-show_entries', 'format=duration',
+           '-of', 'default=noprint_wrappers=1:nokey=1',
            full_video_path]
     process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     output = process.stdout.splitlines()
@@ -277,8 +278,9 @@ def get_video_info(video_path):
         frame_rate = float(frame_rate_str)
 
     total_frames = output[1]
+    duration = float(output[2])
 
-    return frame_rate, total_frames
+    return frame_rate, total_frames, duration
 
 ffmpeg_paths = []
 try:

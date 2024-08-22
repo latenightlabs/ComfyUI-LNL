@@ -3,7 +3,7 @@
 import { api } from "../../../scripts/api.js";
 import { $el } from "../../../scripts/ui.js";
 
-export async function processVideoEntry(path, videoDuration) {
+export async function processVideoEntry(path) {
     const body = {
         path: path,
     };
@@ -13,7 +13,7 @@ export async function processVideoEntry(path, videoDuration) {
         return undefined;
     }
     const jsonData = await result.json();
-    const frameDuration = videoDuration / jsonData.total_frames;
+    const frameDuration = jsonData.duration / jsonData.total_frames;
     jsonData.frame_duration = frameDuration;
     return jsonData;
 }
