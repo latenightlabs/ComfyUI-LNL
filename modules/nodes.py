@@ -34,24 +34,8 @@ def getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, st
 
 class FrameSelectorV3():
 
-    def INPUT_TYPES(s):
-        input_dir = folder_paths.get_input_directory()
-        files = []
-        for f in os.listdir(input_dir):
-            if os.path.isfile(os.path.join(input_dir, f)):
-                file_parts = f.split('.')
-                if len(file_parts) > 1 and (file_parts[-1] in FrameSelector.supported_video_extensions):
-                    files.append(f"input/{f}")
-        return {
-            "required": {
-                "video_path": (sorted(files),),
-            },
-            "hidden": {
-                "prompt": "PROMPT",
-                "unique_id": "UNIQUE_ID"
-            },
-        }
-    
+    supported_video_extensions =  ['webm', 'mp4', 'mkv']
+
     @classmethod
     def INPUT_TYPES(s):
         input_dir = folder_paths.get_input_directory()
@@ -59,7 +43,7 @@ class FrameSelectorV3():
         for f in os.listdir(input_dir):
             if os.path.isfile(os.path.join(input_dir, f)):
                 file_parts = f.split('.')
-                if len(file_parts) > 1 and (file_parts[-1] in FrameSelector.supported_video_extensions):
+                if len(file_parts) > 1 and (file_parts[-1] in FrameSelectorV3.supported_video_extensions):
                     files.append(f"input/{f}")
         return {
             "required": {
