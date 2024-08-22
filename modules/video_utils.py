@@ -60,7 +60,7 @@ def lnl_lazy_eval(func):
     cache = Cache(func)
     return lambda : cache.get()
 
-def lnl_cv_frame_generator(video, frame_load_cap, skip_first_frames, select_every_nth):
+def lnl_cv_frame_generator(video, number_of_frames_to_process, skip_first_frames, select_every_nth):
     try:
         video_cap = cv2.VideoCapture(video)
         if not video_cap.isOpened():
@@ -90,7 +90,7 @@ def lnl_cv_frame_generator(video, frame_load_cap, skip_first_frames, select_ever
             time_offset -= target_frame_time
             # if not at start_index, skip doing anything with frame
             total_frame_count += 1
-            if total_frame_count <= skip_first_frames:
+            if total_frame_count < skip_first_frames:
                 continue
             else:
                 total_frames_evaluated += 1
@@ -98,7 +98,7 @@ def lnl_cv_frame_generator(video, frame_load_cap, skip_first_frames, select_ever
             # if should not be selected, skip doing anything with frame
             if total_frames_evaluated%select_every_nth != 0:
                 frames_added += 1
-                if total_frame_count >= frame_load_cap + skip_first_frames:
+                if total_frame_count >= number_of_frames_to_process + skip_first_frames:
                     break
                 continue
 
@@ -118,7 +118,7 @@ def lnl_cv_frame_generator(video, frame_load_cap, skip_first_frames, select_ever
             prev_frame = frame
             frames_added += 1
             # if cap exists and we've reached it, stop processing frames
-            if frame_load_cap > 0 and frames_added >= frame_load_cap:
+            if number_of_frames_to_process > 0 and frames_added >= number_of_frames_to_process:
                 break
         if prev_frame is not None:
             yield prev_frame

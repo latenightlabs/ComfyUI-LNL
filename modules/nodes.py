@@ -13,8 +13,8 @@ Portions of this code are adapted from GitHub repository `https://github.com/Kos
 which is licensed under the GNU General Public License version 3 (GPL-3.0):
 
 """
-def getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame, force_size, custom_width, custom_height):
-    generatedImages = lnl_cv_frame_generator(full_video_path, frames_to_process, starting_frame, select_every_nth_frame)
+def getImageBatch(full_video_path, number_of_frames_to_process, select_every_nth_frame, starting_frame, force_size, custom_width, custom_height):
+    generatedImages = lnl_cv_frame_generator(full_video_path, number_of_frames_to_process, starting_frame, select_every_nth_frame)
     (width, height, target_frame_time) = next(generatedImages)
     width = int(width)
     height = int(height)
@@ -87,8 +87,8 @@ class FrameSelectorV3():
         frames_to_process = out_point - in_point + 1
         starting_frame = in_point
 
-        (current_image, _) = getImageBatch(full_video_path, 1, 1, current_frame, force_size, custom_width, custom_height)
-        (in_out_images, target_frame_time) = getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame, force_size, custom_width, custom_height)
+        (current_image, _) = getImageBatch(full_video_path, 1, 1, current_frame - 1, force_size, custom_width, custom_height)
+        (in_out_images, target_frame_time) = getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame - 1, force_size, custom_width, custom_height)
 
         audio = lambda: lnl_get_audio(full_video_path, starting_frame * target_frame_time,
                                frames_to_process*target_frame_time*select_every_nth_frame)
