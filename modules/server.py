@@ -15,7 +15,7 @@ async def route_hander_method(request):
     video_path = json_data['path']
 
     frame_rate, total_frames, duration = get_video_info(video_path)
-    return web.json_response({"frame_rate": int(frame_rate), "total_frames": int(total_frames), "duration": duration})
+    return web.json_response({"frame_rate": frame_rate, "total_frames": total_frames, "duration": duration})
 
 @server.PromptServer.instance.routes.get("/fetch_groups_data")
 async def route_hander_method(request):

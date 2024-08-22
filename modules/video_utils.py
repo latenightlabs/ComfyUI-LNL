@@ -272,12 +272,12 @@ def get_video_info(video_path):
 
     frame_rate_str = output[0]
     try:
-        num, den = map(int, frame_rate_str.split('/'))
+        num, den = map(float, frame_rate_str.split('/'))
         frame_rate = num / den
     except ValueError:
         frame_rate = float(frame_rate_str)
 
-    total_frames = output[1]
+    total_frames = int(output[1]) + 1
     duration = float(output[2])
 
     return frame_rate, total_frames, duration
