@@ -54,9 +54,19 @@ async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
             }
         }
         groupData.links = Array.from(groupLinkIds).map(linkId => {
-            const linkIndex = app.graph.links.findIndex(link => {
-                return link ? link.id === linkId : false;
-            });
+            let linkIndex = -1;
+            if (typeof app.graph.links === 'object') {
+                Object.keys(app.graph.links).forEach(link => {
+                    if (app.graph.links[link].id === linkId) {
+                        linkIndex = linkId;
+                    }
+                });
+            }
+            else {
+                linkIndex = app.graph.links.findIndex(link => {
+                    return link ? link.id === linkId : false;
+                });
+            }
             if (linkIndex === -1) {
                 return null;
             }
