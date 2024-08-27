@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 
 import { createFrameSelectorWidgets } from "./videoPlayer/videoPlayer.js";
-import { registerGroupExtensions } from "./enhancedGroups/enhancedGroups.js";
+import { registerGroupExtensions, setupConfigAndSerialization } from "./enhancedGroups/enhancedGroups.js";
 
 import { lnlAddStylesheet, lnlGetUrl } from "./utils.js";
 
@@ -28,6 +28,9 @@ app.registerExtension({
     async init() {
         lnlAddStylesheet(lnlGetUrl("css/lnlNodes.css", import.meta.url));
         
+        setupConfigAndSerialization();
+    },
+    async setup() {
         registerGroupExtensions();
     },
     async beforeRegisterNodeDef(nodeType, nodeData) {

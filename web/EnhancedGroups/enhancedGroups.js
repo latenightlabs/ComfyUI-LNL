@@ -93,11 +93,15 @@ function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
 }
 
 async function loadGroup(menuItem, options, e, menu, groupNode) {
+    // console.log(`Loading group data from server...`);
     const data = await versionManager.loadGroupData(menuItem.extra.group.id);
+    // console.log(`Loaded group data: ${JSON.stringify(data)}`);
     if (data["versions"].length === 0) {
+        // console.error("No versions found for the group.");
         return;
     }
 
+    // console.log(`Loading group ${menuItem.extra.group.name} (v${menuItem.extra.groupVersion.id})`);
     addGroupVersionToGraph(app, data, groupNode, menuItem.extra.touchPos, menuItem.extra.groupVersion);
 }
 
@@ -146,44 +150,6 @@ function extendCanvasMenu() {
 }
 
 function extendGroupContextMenu() {
-    function removeVersioningDataIfNeeded(groupNode) {
-        // In case we've loaded a versioned group which doesn't have history
-        // in the version manager (e.g. a workflow was transferred from another
-        // machine without the respective JSON file), we should remove the
-        // versioning data and make it behave as a regular group.
-        if (groupNode.versioning_data && !versionManager.versionedGroups().find(obj => obj.id === groupNode.versioning_data.object_id)) {
-            delete groupNode.versioning_data;
-        }
-        app.graph.setDirtyCanvas(true, true);
-    }
-
-    const serialize = LGraphGroup.prototype.serialize;
-    LGraphGroup.prototype.serialize = function() {
-        if (!initialGroupNodeRecomputed) {
-            this.recomputeInsideNodes();
-            initialGroupNodeRecomputed = true;
-        }
-        const object = serialize.apply(this, arguments);
-        if (this.versioning_data) {
-            const versioningData = {
-                object_id: this.versioning_data?.object_id || null,
-                object_name: this.versioning_data?.object_name || null,
-                object_version: this.versioning_data?.object_version || null,
-            };
-            object.versioning_data = versioningData;
-        }
-        removeVersioningDataIfNeeded(object);
-        return object;
-    };
-
-    const configure = LGraphGroup.prototype.configure;
-    LGraphGroup.prototype.configure = function(data) {
-        configure.apply(this, arguments);
-        if (data.versioning_data) {
-            this.versioning_data = data.versioning_data;
-        }
-        removeVersioningDataIfNeeded(this);
-    };
 
     const oldGroupContextMenu = LGraphCanvas.prototype.getGroupMenuOptions;
     LGraphCanvas.prototype.getGroupMenuOptions = function(group) {
@@ -255,7 +221,7 @@ function extendGroupDrawingContext() {
             var group = groups[i];
 
             if (!LGraphCanvas.active_canvas ||
-                !LiteGraph.overlapBounding(LGraphCanvas.active_canvas.visible_area, group._bounding) ||
+                // !LiteGraph.overlapBounding(LGraphCanvas.active_canvas.visible_area, group._bounding) ||
                 !group.versioning_data
             ) {
                 continue;
@@ -269,6 +235,7 @@ function extendGroupDrawingContext() {
         
             ctx.font = (font_size - 10) + "px Arial";
             ctx.textAlign = "right";
+            console.log(`Drawing group ${group.title} with versioning data.`);
             const infoText = `[${group.versioning_data.object_name} (v${group.versioning_data.object_version})]`;
             ctx.fillText(infoText, pos[0] - 4 + size[0], pos[1] + font_size);
         }
@@ -276,10 +243,61 @@ function extendGroupDrawingContext() {
     }
 }
 
+export function setupConfigAndSerialization() {
+
+    function removeVersioningDataIfNeeded(groupNode) {
+        // In case we've loaded a versioned group which doesn't have history
+        // in the version manager (e.g. a workflow was transferred from another
+        // machine without the respective JSON file), we should remove the
+        // versioning data and make it behave as a regular group.
+        if (groupNode.versioning_data && !versionManager.versionedGroups().find(obj => obj.id === groupNode.versioning_data.object_id)) {
+            delete groupNode.versioning_data;
+        }
+        app.graph.setDirtyCanvas(true, true);
+    }
+
+    const serialize = LGraphGroup.prototype.serialize;
+    LGraphGroup.prototype.serialize = function() {
+        if (!initialGroupNodeRecomputed) {
+            console.log(`Recomputing inside nodes for group ${this.title}`);
+            this.recomputeInsideNodes();
+            initialGroupNodeRecomputed = true;
+        }
+        const object = serialize.apply(this, arguments);
+        if (this.versioning_data) {
+            console.log(`Group ${this.title} has versioning data.`);
+            const versioningData = {
+                object_id: this.versioning_data?.object_id || null,
+                object_name: this.versioning_data?.object_name || null,
+                object_version: this.versioning_data?.object_version || null,
+            };
+            object.versioning_data = versioningData;
+        }
+        else {
+            console.log(`Group ${this.title} doesn't have versioning data.`);
+        }
+        removeVersioningDataIfNeeded(object);
+        return object;
+    };
+
+    const configure = LGraphGroup.prototype.configure;
+    LGraphGroup.prototype.configure = function(data) {
+        configure.apply(this, arguments);
+        if (data.versioning_data) {
+            console.log(`Configuring group ${data.title} with versioning data.`);
+            this.versioning_data = data.versioning_data;
+        }
+        else {
+            console.log(`Configuring group ${data.title} without versioning data.`);
+        }
+        removeVersioningDataIfNeeded(this);
+    };
+}
+
 export async function registerGroupExtensions() {
+    await versionManager.loadVersionedGroups();
+
     extendGroupContextMenu();
     extendCanvasMenu();
     extendGroupDrawingContext();
-
-    await versionManager.loadVersionedGroups();
 }
