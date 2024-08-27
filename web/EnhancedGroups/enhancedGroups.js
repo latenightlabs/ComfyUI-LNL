@@ -218,7 +218,7 @@ function extendGroupDrawingContext() {
             var group = groups[i];
 
             if (!LGraphCanvas.active_canvas ||
-                // !LiteGraph.overlapBounding(LGraphCanvas.active_canvas.visible_area, group._bounding) ||
+                !LiteGraph.overlapBounding(LGraphCanvas.active_canvas.visible_area, group._bounding) ||
                 !group.versioning_data
             ) {
                 continue;
