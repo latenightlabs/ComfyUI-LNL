@@ -38,7 +38,7 @@ export async function saveGroupData(groupData, saveAsNew) {
 }
 
 // Litegraph utils
-export function addGroupVersionToGraph(app, data, groupNodeSelected, touchPos, groupVersion) {
+export function addGroupVersionToGraph(app, data, groupNodeSelected, touchPos, groupVersion, isRefresh) {
     const groupIndex = data["versions"].findIndex((o) => o?.id === groupVersion.id);
     if (groupIndex === -1) {
         console.error(`Group version ${groupVersion.id} not found in group data`);
@@ -55,8 +55,8 @@ export function addGroupVersionToGraph(app, data, groupNodeSelected, touchPos, g
     
     // Remove the existing group and its nodes if we're loading another (or reload the same) version of the same group
     if (groupNodeSelected) {
-        LGraphCanvas.active_canvas.selected_nodes = groupNodeSelected._nodes;
-        LGraphCanvas.active_canvas.deleteSelectedNodes();
+        app.canvas.selectNodes(groupNodeSelected._nodes, false);
+        app.canvas.deleteSelectedNodes();
         LGraphCanvas.onMenuNodeRemove(null, null, null, null, groupNodeSelected);
     }
     

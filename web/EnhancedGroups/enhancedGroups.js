@@ -99,7 +99,7 @@ async function loadGroup(menuItem, options, e, menu, groupNode) {
         return;
     }
 
-    addGroupVersionToGraph(app, data, groupNode, menuItem.extra.touchPos, menuItem.extra.groupVersion);
+    addGroupVersionToGraph(app, data, groupNode, menuItem.extra.touchPos, menuItem.extra.groupVersion, menuItem.extra.refresh);
 }
 
 function extendCanvasMenu() {
@@ -183,7 +183,7 @@ function extendGroupContextMenu() {
                         options: optionsObjects
                     }
                 },
-                { content: "Refresh", callback: loadGroup, extra: { group: currentGroupData, touchPos: undefined, groupVersion:currentGroupVersion } },
+                { content: "Refresh", callback: loadGroup, extra: { group: currentGroupData, touchPos: undefined, groupVersion: currentGroupVersion, refresh: true } },
             ];
             submenuOptions.push(...versionedGroupOptions);
         }
