@@ -85,7 +85,7 @@ async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
     }
     
     updateGroupFromJSONData(groupNode, jsonData);
-    groupNode.setDirtyCanvas(true, true);
+    app.graph.setDirtyCanvas(true, true);
 }
 
 function saveGroupAsNewVersion(menuItem, options, e, menu, groupNode) {
@@ -217,8 +217,8 @@ function extendGroupDrawingContext() {
         for (var i = 0; i < groups.length; ++i) {
             var group = groups[i];
 
-            if (!LGraphCanvas.active_canvas ||
-                !LiteGraph.overlapBounding(LGraphCanvas.active_canvas.visible_area, group._bounding) ||
+            if (!app.canvas ||
+                !LiteGraph.overlapBounding(app.canvas.visible_area, group._bounding) ||
                 !group.versioning_data
             ) {
                 continue;
@@ -293,9 +293,9 @@ export function setupConfigAndSerialization() {
 }
 
 export async function registerGroupExtensions() {
+    extendGroupDrawingContext();
     await versionManager.loadVersionedGroups();
 
     extendGroupContextMenu();
     extendCanvasMenu();
-    extendGroupDrawingContext();
 }
