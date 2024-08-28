@@ -5,10 +5,10 @@ import { api } from "../../../scripts/api.js";
 import { $el } from "../../../scripts/ui.js";
 import { createSpinner } from "../../../scripts/ui/spinner.js";
 
-import { clamp, lnlGetUrl, lnlUploadFile } from "./utils.js";
-import { getLNLPositionStyle } from "./styles.js";
-import { handleLNLMouseEvent } from "./eventHandlers.js";
-import { processVideoEntry } from "./utils.js";
+import { clamp, lnlGetUrl, lnlUploadFile } from "../utils.js";
+import { getLNLPositionStyle } from "../styles.js";
+import { handleLNLMouseEvent } from "../eventHandlers.js";
+import { processVideoEntry } from "../utils.js";
 
 // Double slider widget
 function createDoubleSliderWidget(hostNode, widgetName) {
@@ -71,15 +71,15 @@ function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
 
     // Images downloaded from Icons8 (https://icons8/com).
     const images = [
-        lnlGetUrl("images/goto_start.png", import.meta.url),
-        lnlGetUrl("images/set_in_point.png", import.meta.url),
-        lnlGetUrl("images/goto_in_point.png", import.meta.url),
-        lnlGetUrl("images/step_backward.png", import.meta.url),
-        lnlGetUrl("images/pause.png", import.meta.url),
-        lnlGetUrl("images/step_forward.png", import.meta.url),
-        lnlGetUrl("images/goto_out_point.png", import.meta.url),
-        lnlGetUrl("images/set_out_point.png", import.meta.url),
-        lnlGetUrl("images/goto_end.png", import.meta.url),
+        lnlGetUrl("../images/goto_start.png", import.meta.url),
+        lnlGetUrl("../images/set_in_point.png", import.meta.url),
+        lnlGetUrl("../images/goto_in_point.png", import.meta.url),
+        lnlGetUrl("../images/step_backward.png", import.meta.url),
+        lnlGetUrl("../images/pause.png", import.meta.url),
+        lnlGetUrl("../images/step_forward.png", import.meta.url),
+        lnlGetUrl("../images/goto_out_point.png", import.meta.url),
+        lnlGetUrl("../images/set_out_point.png", import.meta.url),
+        lnlGetUrl("../images/goto_end.png", import.meta.url),
     ];
     const tooltips = [
         "Go to start",
@@ -184,6 +184,7 @@ function createVideoPreviewWidget(hostNode) {
                 const componentCreated = hostNode.componentCreated;
                 const componentLoadedOrRefreshed = hostNode.currentFrameWidget.value != -1;
                 previewWidget.value.params.frameDuration = jsonData.frame_duration;
+                previewWidget.value.params.duration = jsonData.duration;
                 previewWidget.value.params.totalFrames = jsonData.total_frames;
                 hostNode.doubleSliderWidget.value.frameRate = jsonData.frame_rate;
                 if (!componentCreated) {
@@ -214,8 +215,7 @@ function createVideoPreviewWidget(hostNode) {
                     if (previewWidget.videoEl.currentTime !== lastTime) {
                         lastTime = previewWidget.videoEl.currentTime;
                         
-                        const currentTime = previewWidget.videoEl.currentTime;
-                        const currentFrame = Math.round(currentTime / jsonData.frame_duration);
+                        const currentFrame = clamp(previewWidget.videoEl.getCurrentFrame(), 1, hostNode.doubleSliderWidget.value.totalFrames);
                         hostNode.currentFrameWidget.value = currentFrame;
                         updateSliderValues(hostNode.doubleSliderWidget, hostNode, currentFrame, jsonData.total_frames);
                     }
@@ -297,12 +297,12 @@ function createVideoPreviewWidget(hostNode) {
     previewWidget.parentEl.appendChild(previewWidget.videoEl);
 
     previewWidget.videoEl.getFrameForNValue = function (nvalue) {
-        const frameAtValue = Math.round(nvalue * previewWidget.value.params.totalFrames / 100);
+        const frameAtValue = parseInt(nvalue * previewWidget.value.params.totalFrames / 100);
         return frameAtValue;
     };
 
     previewWidget.videoEl.getCurrentFrame = function () {
-        const currentFrame = Math.round(this.currentTime / previewWidget.value.params.frameDuration);
+        const currentFrame = Math.round(this.currentTime / previewWidget.value.params.frameDuration) + 1;
         return currentFrame;
     };
     previewWidget.videoEl.getStartFrame = function () {
@@ -323,7 +323,7 @@ function createVideoPreviewWidget(hostNode) {
     };
     previewWidget.videoEl.setCurrentFrame = function (frame) {
         const clampedFrame = clamp(frame, 1, hostNode.doubleSliderWidget.value.totalFrames);
-        this.currentTime = clampedFrame * previewWidget.value.params.frameDuration;
+        this.currentTime = clampedFrame / hostNode.doubleSliderWidget.value.totalFrames * previewWidget.value.params.duration - previewWidget.value.params.frameDuration;
         hostNode.currentFrameWidget.value = clampedFrame;
     };
     previewWidget.videoEl.advanceOneFrame = function () {
@@ -424,12 +424,12 @@ function updatePlayPauseControl(previewWidget, playerControlsWidget) {
 }
 
 function setPlayIcon(playerControlsWidget) {
-    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("images/play.png", import.meta.url)}" />`;
+    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("../images/play.png", import.meta.url)}" />`;
     assignPlayPauseControlImage(playerControlsWidget, imageHTML);
 }
 
 function setPauseIcon(playerControlsWidget) {
-    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("images/pause.png", import.meta.url)}" />`;
+    const imageHTML = `<img class="player-grid-item" src="${lnlGetUrl("../images/pause.png", import.meta.url)}" />`;
     assignPlayPauseControlImage(playerControlsWidget, imageHTML);
 }
 
@@ -541,7 +541,7 @@ function updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget
 }
 
 // Create widgets
-export async function createWidgets(nodeType) {
+export async function createFrameSelectorWidgets(nodeType) {
     const originalNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
         originalNodeCreated?.apply(this, arguments);
