@@ -2,6 +2,8 @@
 
 import { app } from "../../scripts/app.js"; // For LiteGraph
 
+import { clamp } from "./utils.js";
+
 export function handleLNLMouseEvent(event, pos, node, positionUpdatedCallback) {
     const width = node.size[0];
 
