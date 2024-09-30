@@ -3,7 +3,7 @@
 import { app } from "../../../scripts/app.js"; // For LiteGraph
 import { api } from "../../../scripts/api.js";
 import { $el } from "../../../scripts/ui.js";
-import { createSpinner } from "../../../scripts/ui/spinner.js";
+import { createLNLSpinner } from "../OldSpinner/spinner.js";
 
 import { clamp, lnlGetUrl, lnlUploadFile } from "../utils.js";
 import { getLNLPositionStyle } from "../styles.js";
@@ -404,7 +404,7 @@ function createLoaderOverlay(previewWidget) {
 
     previewWidget.spinnerEl = document.createElement("div");
     previewWidget.spinnerEl.className = "video-loading-spinner";
-    previewWidget.spinnerEl.innerHTML = createSpinner().outerHTML + "<br />Processing...";
+    previewWidget.spinnerEl.innerHTML = createLNLSpinner().outerHTML + "<br />Processing...";
     previewWidget.loaderEl.appendChild(previewWidget.spinnerEl);
 }
 

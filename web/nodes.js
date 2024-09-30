@@ -13,6 +13,11 @@ function setupFrameSelectorNodeHandlers(nodeType) {
         originalOnExecutionStart?.apply(this, arguments);
     };
 
+    const originalOnExecuted = nodeType.prototype.onExecuted;
+    nodeType.prototype.onExecuted = function (output) {
+        originalOnExecuted?.apply(this, arguments);
+    };
+
     const originalSetSize = nodeType.prototype.setSize;
     nodeType.prototype.setSize = function (size) {
         originalSetSize?.apply(this, arguments);
