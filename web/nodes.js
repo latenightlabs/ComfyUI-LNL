@@ -1,6 +1,6 @@
 import { app } from "../../scripts/app.js";
 
-import { createFrameSelectorWidgets } from "./videoPlayer/videoPlayer.js";
+import { createFrameSelectorWidgets } from "./VideoPlayer/videoPlayer.js";
 import { registerGroupExtensions, setupConfigAndSerialization } from "./enhancedGroups/enhancedGroups.js";
 
 import { lnlAddStylesheet, lnlGetUrl } from "./utils.js";
