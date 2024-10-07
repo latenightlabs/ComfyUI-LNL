@@ -470,7 +470,7 @@ function createUploadWidget(hostNode, pathWidget) {
                     return;
                 }
                 const filename = fileInput.files[0].name;
-                const fullFilePath = `input/${filename}`;
+                const fullFilePath = `${filename}`;
                 pathWidget.options.values.push(fullFilePath);
                 pathWidget.options.values.sort();
                 pathWidget.value = fullFilePath;

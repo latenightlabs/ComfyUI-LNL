@@ -44,7 +44,7 @@ class FrameSelectorV3():
             if os.path.isfile(os.path.join(input_dir, f)):
                 file_parts = f.split('.')
                 if len(file_parts) > 1 and (file_parts[-1] in FrameSelectorV3.supported_video_extensions):
-                    files.append(f"input/{f}")
+                    files.append(f)
         return {
             "required": {
                 "video_path": (sorted(files),),
