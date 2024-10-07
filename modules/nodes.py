@@ -3,6 +3,7 @@ import os
 import torch
 import numpy as np
 from .video_utils import *
+from .utils import lnl_fix_path
 
 import folder_paths
 
@@ -74,7 +75,7 @@ class FrameSelectorV3():
         unique_id=None
     ):
         prompt_inputs = prompt[unique_id]["inputs"]
-        full_video_path = os.path.join(folder_paths.base_path, video_path)
+        full_video_path = lnl_fix_path(video_path)
 
         in_point = prompt_inputs["in_out_point_slider"]["startMarkerFrame"]
         out_point = prompt_inputs["in_out_point_slider"]["endMarkerFrame"]

@@ -1,4 +1,3 @@
-import folder_paths
 import server
 web = server.web
 
@@ -6,6 +5,7 @@ import time
 import json
 from uuid import uuid4
 
+from .utils import lnl_fix_path
 from .video_utils import *
 from .group_utils import group_extension_folder_path, setup_version_data
 import os
@@ -15,11 +15,9 @@ async def route_hander_method(request):
     json_data = await request.json()
     video_path = json_data['path']
     
-    annotated_path = os.path.join(folder_paths.base_path, video_path)
-    if not os.path.exists(annotated_path):
-        annotated_path = folder_paths.get_annotated_filepath(video_path)
+    video_path = lnl_fix_path(video_path)
 
-    frame_rate, total_frames, duration = get_video_info(annotated_path)
+    frame_rate, total_frames, duration = get_video_info(video_path)
     return web.json_response({"frame_rate": frame_rate, "total_frames": total_frames, "duration": duration})
 
 @server.PromptServer.instance.routes.get("/fetch_groups_data")

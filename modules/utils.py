@@ -1,5 +1,8 @@
+import folder_paths
+
 import subprocess
 import shutil
+import os
 
 import cv2
 import numpy as np
@@ -252,6 +255,11 @@ def lnl_target_size(width, height, force_size, custom_width, custom_height) -> t
             height = int(force_size[1])
     return (width, height)
 
+def lnl_fix_path(video_path):
+    annotated_path = os.path.join(folder_paths.base_path, video_path)
+    if not os.path.exists(annotated_path):
+        annotated_path = folder_paths.get_annotated_filepath(video_path)
+    return annotated_path
 
 ffmpeg_paths = []
 try:
