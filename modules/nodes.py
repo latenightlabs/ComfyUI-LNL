@@ -90,6 +90,7 @@ class FrameSelectorV3():
 
         (current_image, _) = getImageBatch(full_video_path, 1, 1, current_frame - 1, force_size, custom_width, custom_height)
         (in_out_images, target_frame_time) = getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame - 1, force_size, custom_width, custom_height)
+        self.target_frame_time = target_frame_time
 
         audio = lambda: lnl_get_audio(full_video_path, starting_frame * target_frame_time,
                                frames_to_process*target_frame_time*select_every_nth_frame)
@@ -110,7 +111,7 @@ class FrameSelectorV3():
 
 class FrameSelectorV4(FrameSelectorV3):
 
-    RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "STRING", "INT", "INT", "INT", "INT", "INT", "FLOAT", "VHS_AUDIO",)
+    RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "STRING", "INT", "INT", "INT", "INT", "INT", "FLOAT", "AUDIO",)
     RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame in", "Frame out", "Filename", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)", "Frame rate (INT)", "Frame rate (FLOAT)", "audio",)
     OUTPUT_NODE = True
     CATEGORY = "LNL"
@@ -125,8 +126,26 @@ class FrameSelectorV4(FrameSelectorV3):
         prompt=None,
         unique_id=None
     ):
+        prompt_inputs = prompt[unique_id]["inputs"]
+        full_video_path = lnl_fix_path(video_path)
+
+        in_point = prompt_inputs["in_out_point_slider"]["startMarkerFrame"]
+        out_point = prompt_inputs["in_out_point_slider"]["endMarkerFrame"]
+        current_frame = prompt_inputs["in_out_point_slider"]["currentFrame"]
+        total_frames = prompt_inputs["in_out_point_slider"]["totalFrames"]
+        frame_rate = prompt_inputs["in_out_point_slider"]["frameRate"]
+
+        select_every_nth_frame = prompt_inputs["select_every_nth_frame"]
+
+        frames_to_process = out_point - in_point + 1
+        starting_frame = in_point
+
         result = super().process_video(video_path, force_size, custom_width, custom_height, prompt, unique_id)
-        return result[:9] + (int(result[9]), result[9],) + result[10:]
+
+        audio = lnl_lazy_get_audio(full_video_path, starting_frame * self.target_frame_time,
+                                frames_to_process*self.target_frame_time*select_every_nth_frame)
+
+        return result[:9] + (int(result[9]), result[9], audio,)
 
 NODE_CLASS_MAPPINGS = {
     "LNL_FrameSelectorV4": FrameSelectorV4,
