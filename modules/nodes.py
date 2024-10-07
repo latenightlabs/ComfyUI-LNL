@@ -108,9 +108,31 @@ class FrameSelectorV3():
             lnl_lazy_eval(audio),
         )
 
+class FrameSelectorV4(FrameSelectorV3):
+
+    RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "STRING", "INT", "INT", "INT", "INT", "INT", "FLOAT", "VHS_AUDIO",)
+    RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame in", "Frame out", "Filename", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)", "Frame rate (INT)", "Frame rate (FLOAT)", "audio",)
+    OUTPUT_NODE = True
+    CATEGORY = "LNL"
+    FUNCTION = "process_video"
+
+    def process_video(
+        self,
+        video_path,
+        force_size,
+        custom_width,
+        custom_height,
+        prompt=None,
+        unique_id=None
+    ):
+        result = super().process_video(video_path, force_size, custom_width, custom_height, prompt, unique_id)
+        return result[:9] + (int(result[9]), result[9],) + result[10:]
+
 NODE_CLASS_MAPPINGS = {
+    "LNL_FrameSelectorV4": FrameSelectorV4,
     "LNL_FrameSelectorV3": FrameSelectorV3
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "LNL_FrameSelectorV3": "LNL Frame Selector"
+    "LNL_FrameSelectorV4": "LNL Frame Selector V2",
+    "LNL_FrameSelectorV3": "LNL Frame Selector [Deprecated] ⛔️"
 }
