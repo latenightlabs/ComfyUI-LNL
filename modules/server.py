@@ -5,6 +5,7 @@ import time
 import json
 from uuid import uuid4
 
+from .utils import lnl_fix_path
 from .video_utils import *
 from .group_utils import group_extension_folder_path, setup_version_data
 import os
@@ -13,6 +14,8 @@ import os
 async def route_hander_method(request):
     json_data = await request.json()
     video_path = json_data['path']
+    
+    video_path = lnl_fix_path(video_path)
 
     frame_rate, total_frames, duration = get_video_info(video_path)
     return web.json_response({"frame_rate": frame_rate, "total_frames": total_frames, "duration": duration})
