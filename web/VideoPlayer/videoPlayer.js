@@ -2,7 +2,6 @@
 
 import { app } from "../../../scripts/app.js"; // For LiteGraph
 import { api } from "../../../scripts/api.js";
-import { $el } from "../../../scripts/ui.js";
 import { createLNLSpinner } from "../OldSpinner/spinner.js";
 
 import { clamp, lnlGetUrl, lnlUploadFile } from "../utils.js";
@@ -392,7 +391,7 @@ function createVideoPreviewWidget(hostNode) {
         let params = {}
         Object.assign(params, previewWidget.value.params);
                 if (params.filename) {
-                    const jsonData = await processVideoEntry(params.filename, previewWidget.videoEl.duration);
+                    const jsonData = await processVideoEntry(params.filename);
             if (jsonData) {
                 previewWidget.loaderEl.style['visibility'] = "hidden";
 
@@ -428,24 +427,44 @@ function createVideoPreviewWidget(hostNode) {
                     const currentFrame = clamp(previewWidget.videoEl.getCurrentFrame(), 1, totalFrames);
                     applyFrameState(hostNode, { currentFrame }, { source: "currentFrame" });
                 };
-                function checkFrame() {
-                    if (previewWidget.videoEl.currentTime !== lastTime) {
-                        lastTime = previewWidget.videoEl.currentTime;
-                        syncCurrentFrame();
+                const startRafSync = () => {
+                    if (previewWidget._lnlRafId) {
+                        return;
                     }
-                    requestAnimationFrame(checkFrame);
-                }
+                    const tick = () => {
+                        if (!isVideoPlaying(previewWidget)) {
+                            previewWidget._lnlRafId = null;
+                            return;
+                        }
+                        if (previewWidget.videoEl.currentTime !== lastTime) {
+                            lastTime = previewWidget.videoEl.currentTime;
+                            syncCurrentFrame();
+                        }
+                        previewWidget._lnlRafId = requestAnimationFrame(tick);
+                    };
+                    previewWidget._lnlRafId = requestAnimationFrame(tick);
+                };
+                const stopRafSync = () => {
+                    if (previewWidget._lnlRafId) {
+                        cancelAnimationFrame(previewWidget._lnlRafId);
+                        previewWidget._lnlRafId = null;
+                    }
+                };
                 previewWidget.videoEl.addEventListener('timeupdate', syncCurrentFrame);
                 previewWidget.videoEl.addEventListener('seeked', syncCurrentFrame);
                 previewWidget.videoEl.addEventListener('playing', (event) => {
-                    checkFrame();
+                    startRafSync();
 
                     const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
                     if (sliderWidget) {
                         sliderWidget.pointerIsDown = false;
                     }
                 });
+                previewWidget.videoEl.addEventListener('pause', () => {
+                    stopRafSync();
+                });
                 previewWidget.videoEl.addEventListener('ended', (event) => {
+                    stopRafSync();
                     setPlayIcon(hostNode.playerControlsWidget);
                 });                    
                 
@@ -454,7 +473,7 @@ function createVideoPreviewWidget(hostNode) {
                     setPauseIcon(hostNode.playerControlsWidget);
                 }
                 else {
-                    checkFrame();
+                    stopRafSync();
                     setPlayIcon(hostNode.playerControlsWidget);
                 }
             }
@@ -761,11 +780,25 @@ function normalizeFrameState(state) {
 
 function applyFrameState(node, updates, options = {}) {
     const state = ensureFrameState(node);
+    const nextState = {
+        ...state,
+        ...updates,
+    };
     if (options.source) {
-        state._lastChanged = options.source;
+        nextState._lastChanged = options.source;
     }
-    Object.assign(state, updates);
-    normalizeFrameState(state);
+    normalizeFrameState(nextState);
+
+    if (!options.force
+        && state.totalFrames === nextState.totalFrames
+        && state.frameRate === nextState.frameRate
+        && state.currentFrame === nextState.currentFrame
+        && state.inPoint === nextState.inPoint
+        && state.outPoint === nextState.outPoint) {
+        return;
+    }
+
+    Object.assign(state, nextState);
 
     if (node.previewWidget?.value?.params) {
         if (updates.totalFrames) {
@@ -888,6 +921,7 @@ function createUploadWidget(hostNode, pathWidget) {
         fileInput.click();
     });
     uploadWidget.options.serialize = false;
+    uploadWidget._lnlFileInput = fileInput;
     return uploadWidget;
 }
 
@@ -1249,6 +1283,9 @@ export async function createFrameSelectorWidgets(nodeType) {
         this.onRemoved = function () {
             originalOnRemoved?.apply(this, arguments);
             doubleSliderWidget.inputEl.remove();
+            if (this.uploadWidget?._lnlFileInput) {
+                this.uploadWidget._lnlFileInput.remove();
+            }
         };
         this.setSize(this.computeSize());
     };
