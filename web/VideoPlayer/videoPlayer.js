@@ -1063,7 +1063,6 @@ function setWidgetValue(node, widget, value) {
         targetNode._lnlSuppressWidgetCallbacks = true;
         try {
             widget.setValue(value, { e: null, node: targetNode, canvas });
-            return;
         } catch (err) {
             console.warn("LNL setWidgetValue fallback", err);
         } finally {
@@ -1083,6 +1082,8 @@ function setWidgetValue(node, widget, value) {
     if (widget.element && "value" in widget.element) {
         widget.element.value = value;
     }
+    targetNode?.graph?.setDirtyCanvas?.(true, true);
+    app?.canvas?.setDirty?.(true, true);
 }
 
 function ensureFrameState(node) {
