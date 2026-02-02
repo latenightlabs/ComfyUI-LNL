@@ -48,8 +48,14 @@ def lnl_get_audio(file, start_time=0, duration=0):
         args += ["-ss", str(start_time)]
     if duration > 0:
         args += ["-t", str(duration)]
-    return subprocess.run(args + ["-f", "wav", "-"],
-                          stdout=subprocess.PIPE, check=True).stdout
+    try:
+        return subprocess.run(args + ["-f", "wav", "-"],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True).stdout
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr.decode("utf-8") if e.stderr else ""
+        if _lnl_is_no_audio_error(stderr):
+            return b""
+        raise
 
 def lnl_lazy_eval(func):
     class Cache:
@@ -76,8 +82,11 @@ def _lnl_get_audio(file, start_time=0, duration=0):
         audio = torch.frombuffer(bytearray(res.stdout), dtype=torch.float32)
         match = re.search(', (\\d+) Hz, (\\w+), ',res.stderr.decode('utf-8'))
     except subprocess.CalledProcessError as e:
+        stderr = e.stderr.decode("utf-8") if e.stderr else ""
+        if _lnl_is_no_audio_error(stderr):
+            return lnl_empty_audio_dict()
         raise Exception(f"VHS failed to extract audio from {file}:\n" \
-                + e.stderr.decode("utf-8"))
+                + stderr)
     if match:
         ar = int(match.group(1))
         #NOTE: Just throwing an error for other channel types right now
@@ -88,6 +97,15 @@ def _lnl_get_audio(file, start_time=0, duration=0):
         ac = 2
     audio = audio.reshape((-1,ac)).transpose(0,1).unsqueeze(0)
     return {'waveform': audio, 'sample_rate': ar}
+
+def lnl_empty_audio_dict(sample_rate=44100):
+    return {'waveform': torch.zeros((1, 1, 0), dtype=torch.float32), 'sample_rate': sample_rate}
+
+def _lnl_is_no_audio_error(stderr):
+    if not stderr:
+        return False
+    text = stderr.lower()
+    return ("audio" not in text and "video" in text) or "matches no streams" in text or "no audio" in text or "does not contain any stream" in text
 
 class LNLLazyAudioMap(Mapping):
     def __init__(self, file, start_time, duration):

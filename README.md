@@ -49,6 +49,11 @@ $ pip install -r requirements.txt
 
 ## Inputs
 1. Choose Video to Upload: Select a video file for processing (in this case, 'input/logo.mp4').
+2. Optional Image Batch: Connect an IMAGE batch to use as the source instead of a file-based video.
+3. Optional Audio: Connect an AUDIO input to override/externalize audio for the selected range.
+
+Note: When an Image Batch input is connected, the video library selector and upload button are hidden.
+Audio inputs are aligned to the video timeline (start at 0:0), padded/cropped to match duration, then trimmed by In/Out.
 
 ## Outputs
 Options include:

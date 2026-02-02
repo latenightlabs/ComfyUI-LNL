@@ -408,6 +408,166 @@ function createTimelineWidget(hostNode) {
     return timelineWidget;
 }
 
+function buildSequenceFrameUrl(sequence, frameIndex) {
+    if (!sequence) {
+        return "";
+    }
+    const pad = sequence.pad ?? 5;
+    const filename = `${sequence.prefix}_${String(frameIndex).padStart(pad, "0")}.${sequence.ext ?? "png"}`;
+    const params = new URLSearchParams({
+        filename,
+        subfolder: sequence.subfolder ?? "",
+        type: sequence.type ?? "temp",
+    });
+    return api.apiURL(`/view?${params}`);
+}
+
+function createImageSequencePlayer(previewWidget, hostNode) {
+    const listeners = {};
+    const player = {
+        paused: true,
+        ended: false,
+        currentFrame: 1,
+        frameRate: 30,
+        frameDuration: 1 / 30,
+        totalFrames: 1,
+        addEventListener(event, handler) {
+            if (!listeners[event]) {
+                listeners[event] = new Set();
+            }
+            listeners[event].add(handler);
+        },
+        removeEventListener(event, handler) {
+            listeners[event]?.delete(handler);
+        },
+        _emit(event) {
+            for (const handler of listeners[event] ?? []) {
+                handler();
+            }
+        },
+        _setCurrentFrame(frame, options = {}) {
+            const totalFrames = getTotalFramesFromNode(hostNode) || this.totalFrames || 1;
+            const clampedFrame = clamp(frame, 1, totalFrames);
+            this.currentFrame = clampedFrame;
+            this.currentTime = (clampedFrame - 1) * this.frameDuration;
+            previewWidget.renderSequenceFrame?.(clampedFrame);
+            if (!options.silent) {
+                applyFrameState(hostNode, { currentFrame: clampedFrame }, { source: "currentFrame" });
+            }
+        },
+        setSequence(sequence) {
+            this.totalFrames = Math.max(1, sequence?.count ?? 1);
+            this.frameRate = sequence?.frame_rate ?? previewWidget.value?.params?.frameRate ?? 30;
+            this.frameDuration = this.frameRate ? 1 / this.frameRate : 0;
+            this.currentFrame = 1;
+            this.ended = false;
+            this.paused = true;
+            previewWidget.renderSequenceFrame?.(this.currentFrame);
+        },
+        play() {
+            if (!this.paused) {
+                return;
+            }
+            this.paused = false;
+            this.ended = false;
+            this._emit("playing");
+            const tick = () => {
+                if (this.paused) {
+                    return;
+                }
+                const nextFrame = Math.min(this.currentFrame + 1, this.getOutPointFrame());
+                if (nextFrame <= this.currentFrame) {
+                    this.ended = true;
+                    this.pause();
+                    this._emit("ended");
+                    return;
+                }
+                this._setCurrentFrame(nextFrame, { silent: true });
+                applyFrameState(hostNode, { currentFrame: nextFrame }, { source: "currentFrame", updateVideo: false });
+                this._timer = setTimeout(tick, Math.max(1, this.frameDuration * 1000));
+            };
+            this._timer = setTimeout(tick, Math.max(1, this.frameDuration * 1000));
+        },
+        pause() {
+            if (this._timer) {
+                clearTimeout(this._timer);
+                this._timer = null;
+            }
+            if (!this.paused) {
+                this.paused = true;
+                this._emit("pause");
+            }
+        },
+        getFrameForNValue(nvalue) {
+            const frameAtValue = parseInt(nvalue * (this.totalFrames || 1) / 100);
+            return Math.max(1, frameAtValue);
+        },
+        getCurrentFrame() {
+            return this.currentFrame;
+        },
+        getStartFrame() {
+            return 1;
+        },
+        getInPointFrame() {
+            const state = hostNode?._lnlFrameState;
+            if (state?.inPoint) {
+                return state.inPoint;
+            }
+            const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
+            return sliderWidget?.value?.startMarkerFrame ?? 1;
+        },
+        getOutPointFrame() {
+            const state = hostNode?._lnlFrameState;
+            if (state?.outPoint) {
+                return state.outPoint;
+            }
+            const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
+            return sliderWidget?.value?.endMarkerFrame ?? this.getEndFrame();
+        },
+        getEndFrame() {
+            return this.totalFrames || 1;
+        },
+        setCurrentFrame(frame, options = {}) {
+            this._setCurrentFrame(frame, options);
+        },
+        advanceOneFrame() {
+            const endFrame = this.getEndFrame();
+            const nextFrame = Math.min(this.getCurrentFrame() + 1, endFrame);
+            this.setCurrentFrame(nextFrame);
+        },
+        regressOneFrame() {
+            const startFrame = this.getStartFrame();
+            const previousFrame = Math.max(this.getCurrentFrame() - 1, startFrame);
+            this.setCurrentFrame(previousFrame);
+        },
+        gotoInPoint() {
+            const inFrame = this.getInPointFrame();
+            this.setCurrentFrame(inFrame);
+        },
+        gotoOutPoint() {
+            const outFrame = this.getOutPointFrame();
+            this.setCurrentFrame(outFrame);
+        },
+        gotoStart() {
+            this.setCurrentFrame(this.getStartFrame());
+        },
+        gotoEnd() {
+            this.setCurrentFrame(this.getEndFrame());
+        },
+        setInPoint(value) {
+            const currentFrame = this.getCurrentFrame();
+            const valueToSet = value ? value : currentFrame;
+            applyFrameState(hostNode, { inPoint: valueToSet }, { source: "inPoint" });
+        },
+        setOutPoint(value) {
+            const currentFrame = this.getCurrentFrame();
+            const valueToSet = value ? value : currentFrame;
+            applyFrameState(hostNode, { outPoint: valueToSet }, { source: "outPoint" });
+        },
+    };
+    return player;
+}
+
 // Video preview widget
 function createVideoPreviewWidget(hostNode) {
     const infiniteAR = 1000;
@@ -438,16 +598,73 @@ function createVideoPreviewWidget(hostNode) {
     previewWidget.value = { hidden: false, paused: false, params: {} }
     previewWidget.parentEl = document.createElement("div");
     previewWidget.parentEl.style['position'] = "relative";
-    previewWidget.parentEl.style['width'] = "100%"
+    previewWidget.parentEl.style['width'] = "100%";
     element.appendChild(previewWidget.parentEl);
-    previewWidget.videoEl = document.createElement("video");
-    previewWidget.videoEl.controls = false;
-    previewWidget.videoEl.loop = false;
-    previewWidget.videoEl.muted = true;
-    previewWidget.videoEl.style['width'] = "100%"
-    previewWidget.videoEl.style['pointer-events'] = "none"
+    previewWidget._videoEl = document.createElement("video");
+    previewWidget._videoEl.controls = false;
+    previewWidget._videoEl.loop = false;
+    previewWidget._videoEl.muted = true;
+    previewWidget._videoEl.style['width'] = "100%";
+    previewWidget._videoEl.style['pointer-events'] = "none";
+    previewWidget.videoEl = previewWidget._videoEl;
 
-    previewWidget.videoEl.addEventListener("loadedmetadata", async () => {
+    previewWidget.imageEl = document.createElement("img");
+    previewWidget.imageEl.style.width = "100%";
+    previewWidget.imageEl.style.display = "none";
+    previewWidget.imageEl.style.pointerEvents = "none";
+    previewWidget.parentEl.appendChild(previewWidget.imageEl);
+    previewWidget.parentEl.appendChild(previewWidget._videoEl);
+
+    previewWidget.sequencePlayer = createImageSequencePlayer(previewWidget, hostNode);
+    previewWidget.sequence = null;
+    previewWidget.mode = "video";
+    previewWidget.renderSequenceFrame = (frame) => {
+        if (!previewWidget.sequence) {
+            return;
+        }
+        const frameIndex = clamp(frame, 1, previewWidget.sequence.count || 1);
+        previewWidget.imageEl.src = buildSequenceFrameUrl(previewWidget.sequence, frameIndex);
+    };
+    previewWidget.useImageSequence = (sequence, stateOverrides = {}) => {
+        if (!sequence) {
+            return;
+        }
+        previewWidget.sequence = sequence;
+        previewWidget.mode = "image_sequence";
+        previewWidget.imageEl.style.display = "";
+        previewWidget._videoEl.style.display = "none";
+        previewWidget.videoEl = previewWidget.sequencePlayer;
+        previewWidget.sequencePlayer.setSequence(sequence);
+        const totalFrames = Math.max(1, sequence.count || 1);
+        const frameRate = sequence.frame_rate ?? 30;
+        previewWidget.value.params.frameDuration = frameRate ? 1 / frameRate : 0;
+        previewWidget.value.params.duration = frameRate ? totalFrames / frameRate : 0;
+        previewWidget.value.params.totalFrames = totalFrames;
+        previewWidget.value.params.frameRate = frameRate;
+        const currentFrame = stateOverrides.currentFrame ?? hostNode.currentFrameWidget?.value ?? 1;
+        const inPoint = stateOverrides.inPoint ?? hostNode.inPointWidget?.value ?? 1;
+        const outPoint = stateOverrides.outPoint ?? hostNode.outPointWidget?.value ?? totalFrames;
+        applyFrameState(hostNode, {
+            totalFrames,
+            frameRate,
+            currentFrame,
+            inPoint,
+            outPoint,
+        }, { source: "init", updateVideo: true, force: true });
+        if (previewWidget.loaderEl) {
+            previewWidget.loaderEl.style['visibility'] = "hidden";
+        }
+    };
+    previewWidget.useVideoSource = () => {
+        if (previewWidget.mode !== "video") {
+            previewWidget.mode = "video";
+            previewWidget.videoEl = previewWidget._videoEl;
+            previewWidget.imageEl.style.display = "none";
+            previewWidget._videoEl.style.display = "";
+        }
+    };
+
+    previewWidget._videoEl.addEventListener("loadedmetadata", async () => {
         previewWidget.aspectRatio = previewWidget.videoEl.videoWidth / previewWidget.videoEl.videoHeight;
         previewWidget.loaderEl.style['visibility'] = "visible";
 
@@ -513,9 +730,9 @@ function createVideoPreviewWidget(hostNode) {
                         previewWidget._lnlRafId = null;
                     }
                 };
-                previewWidget.videoEl.addEventListener('timeupdate', syncCurrentFrame);
-                previewWidget.videoEl.addEventListener('seeked', syncCurrentFrame);
-                previewWidget.videoEl.addEventListener('playing', (event) => {
+                previewWidget._videoEl.addEventListener('timeupdate', syncCurrentFrame);
+                previewWidget._videoEl.addEventListener('seeked', syncCurrentFrame);
+                previewWidget._videoEl.addEventListener('playing', (event) => {
                     startRafSync();
 
                     const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
@@ -523,16 +740,16 @@ function createVideoPreviewWidget(hostNode) {
                         sliderWidget.pointerIsDown = false;
                     }
                 });
-                previewWidget.videoEl.addEventListener('pause', () => {
+                previewWidget._videoEl.addEventListener('pause', () => {
                     stopRafSync();
                 });
-                previewWidget.videoEl.addEventListener('ended', (event) => {
+                previewWidget._videoEl.addEventListener('ended', (event) => {
                     stopRafSync();
                     setPlayIcon(hostNode.playerControlsWidget);
                 });                    
                 
                 if (!componentCreated || (componentCreated && !componentLoadedOrRefreshed)) {
-                    previewWidget.videoEl.play();
+                    previewWidget._videoEl.play();
                     setPauseIcon(hostNode.playerControlsWidget);
                 }
                 else {
@@ -546,7 +763,7 @@ function createVideoPreviewWidget(hostNode) {
         }, 10);
     });
     
-    previewWidget.videoEl.addEventListener("error", () => {
+    previewWidget._videoEl.addEventListener("error", () => {
         previewWidget.aspectRatio = infiniteAR;
         previewWidget.loaderEl.style['visibility'] = "hidden";
 
@@ -585,6 +802,9 @@ function createVideoPreviewWidget(hostNode) {
     });
 
     previewWidget.updateSource = function () {
+        if (this.mode === "image_sequence") {
+            return;
+        }
         let params = {}
         Object.assign(params, this.value.params);
         this.parentEl.hidden = this.value.hidden;
@@ -611,10 +831,12 @@ function createVideoPreviewWidget(hostNode) {
         if (!previewWidget.value.params || typeof previewWidget.value.params !== "object") {
             previewWidget.value.params = {};
         }
+        if (previewWidget.mode === "image_sequence" && params?.filename) {
+            previewWidget.useVideoSource();
+        }
         Object.assign(previewWidget.value.params, params || {});
         previewWidget.updateSource();
-    };      
-    previewWidget.parentEl.appendChild(previewWidget.videoEl);
+    };
 
     previewWidget.videoEl.getFrameForNValue = function (nvalue) {
         const frameAtValue = parseInt(nvalue * previewWidget.value.params.totalFrames / 100);
@@ -980,6 +1202,24 @@ function registerPauseListener() {
             node.pauseControlsWidget.setCountdown(payload.tick);
             return;
         }
+        if (payload.preview_sequence && node.previewWidget?.useImageSequence) {
+            node.previewWidget.useImageSequence(payload.preview_sequence, {
+                currentFrame: payload.current_frame,
+                inPoint: payload.in_point,
+                outPoint: payload.out_point,
+            });
+        }
+        if (payload?.total_frames) {
+            const totalFrames = Math.max(1, payload.total_frames);
+            applyFrameState(node, {
+                totalFrames,
+                currentFrame: 1,
+                inPoint: 1,
+                outPoint: totalFrames,
+            }, { source: "init", updateVideo: true, force: true });
+            setWidgetValue(node, node.selectEveryNthFrameWidget, 1);
+            requestNodeRedraw(node);
+        }
         node._lnlPausePayload = payload;
         node.pauseControlsWidget.resetMessage();
         node.pauseControlsWidget.setVisible(true);
@@ -1165,6 +1405,72 @@ function applyWidgetVisibility(widget) {
     }
 }
 
+function setWidgetHidden(widget, hidden) {
+    if (!widget) {
+        return;
+    }
+    enableHiddenTypeToggle(widget);
+    widget.hidden = hidden;
+    applyWidgetVisibility(widget);
+}
+
+function setWidgetDisabled(widget, disabled) {
+    if (!widget) {
+        return;
+    }
+    widget.disabled = disabled;
+    if (widget.options) {
+        widget.options.read_only = disabled;
+    }
+    widget._disabled = disabled;
+    if (disabled) {
+        if (!widget._lnlOriginalCallback && widget.callback) {
+            widget._lnlOriginalCallback = widget.callback;
+        }
+        if (widget._lnlDisabledValue === undefined) {
+            widget._lnlDisabledValue = widget.value;
+        }
+        widget.callback = function () {
+            if (widget._lnlDisabledValue !== undefined) {
+                widget.value = widget._lnlDisabledValue;
+            }
+            widget.node?.graph?.setDirtyCanvas?.(true, true);
+            app?.canvas?.setDirty?.(true, true);
+        };
+    } else if (widget._lnlOriginalCallback) {
+        widget.callback = widget._lnlOriginalCallback;
+        widget._lnlOriginalCallback = null;
+        widget._lnlDisabledValue = null;
+    }
+    const el = widget.inputEl || widget.input || widget.el || widget.element;
+    if (el && "disabled" in el) {
+        el.disabled = disabled;
+    }
+    if (el && "tabIndex" in el) {
+        if (disabled) {
+            if (widget._lnlOriginalTabIndex === undefined) {
+                widget._lnlOriginalTabIndex = el.tabIndex;
+            }
+            el.tabIndex = -1;
+        } else if (widget._lnlOriginalTabIndex !== undefined) {
+            el.tabIndex = widget._lnlOriginalTabIndex;
+            widget._lnlOriginalTabIndex = undefined;
+        }
+    }
+    if (el?.setAttribute) {
+        if (disabled) {
+            el.setAttribute("aria-disabled", "true");
+        } else {
+            el.removeAttribute("aria-disabled");
+        }
+    }
+    if (el?.style) {
+        el.style.opacity = disabled ? "0.6" : "";
+        el.style.pointerEvents = disabled ? "none" : "";
+        el.style.cursor = disabled ? "not-allowed" : "";
+    }
+}
+
 function forceHiddenWidget(widget) {
     if (!widget) {
         return;
@@ -1210,6 +1516,34 @@ function updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget
     applyWidgetVisibility(customHeightWidget);
 }
 
+function isInputConnected(node, name) {
+    const input = node?.inputs?.find((entry) => entry?.name === name);
+    return input?.link !== null && input?.link !== undefined;
+}
+
+function updateVideoInputAvailability(node) {
+    if (!node) {
+        return;
+    }
+    const hasImageInput = isInputConnected(node, "images");
+    const previousState = node._lnlUsingImageInput;
+    node._lnlUsingImageInput = hasImageInput;
+    if (node.pathWidget) {
+        setWidgetHidden(node.pathWidget, hasImageInput);
+        setWidgetDisabled(node.pathWidget, hasImageInput);
+    }
+    if (node.uploadWidget) {
+        setWidgetHidden(node.uploadWidget, hasImageInput);
+        setWidgetDisabled(node.uploadWidget, hasImageInput);
+    }
+    if (!hasImageInput && node.previewWidget?.useVideoSource) {
+        node.previewWidget.useVideoSource();
+        if (previousState && node.pathWidget?.callback) {
+            node.pathWidget.callback(node.pathWidget.value, true);
+        }
+    }
+}
+
 // Create widgets
 export async function createFrameSelectorWidgets(nodeType) {
     const originalNodeCreated = nodeType.prototype.onNodeCreated;
@@ -1218,6 +1552,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         registerPauseListener();
 
         const that = this;
+        this.applyFrameState = (updates, options = {}) => applyFrameState(this, updates, options);
 
         // Create double slider widget (hidden canvas store)
         const doubleSliderWidget = createDoubleSliderWidget(this, "in_out_point_slider");
@@ -1236,6 +1571,9 @@ export async function createFrameSelectorWidgets(nodeType) {
             else {
                 this.componentCreated = false;
             }
+            if (this._lnlUsingImageInput) {
+                return;
+            }
             if (!value) {
                 that.previewWidget.updateParameters({});
                 return;
@@ -1253,6 +1591,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         // Add upload widget
         const uploadWidget = createUploadWidget(this, pathWidget);
         this.uploadWidget = uploadWidget;
+        updateVideoInputAvailability(this);
 
         /*
         Attribution: ComfyUI-VideoHelperSuite
@@ -1424,6 +1763,14 @@ export async function createFrameSelectorWidgets(nodeType) {
         this.setSize(this.computeSize());
     };
 
+    const originalOnConnectionsChange = nodeType.prototype.onConnectionsChange;
+    nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info, input) {
+        originalOnConnectionsChange?.apply(this, arguments);
+        if (input?.name === "images") {
+            updateVideoInputAvailability(this);
+        }
+    };
+
     // Loading serialized data
     const originalOnConfigure = nodeType.prototype.onConfigure;
     nodeType.prototype.onConfigure = function (info) {
@@ -1449,6 +1796,7 @@ export async function createFrameSelectorWidgets(nodeType) {
             updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
             lnl_fitHeight(this);
         }
+        updateVideoInputAvailability(this);
     };
 }
 
