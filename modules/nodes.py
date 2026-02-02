@@ -445,6 +445,7 @@ class FrameSelectorV4(FrameSelectorV3):
         select_every_nth_frame = _safe_int(prompt_inputs.get("select_every_nth_frame"), 1)
         if select_every_nth_frame <= 0:
             select_every_nth_frame = 1
+        graph_id_value = graph_id if graph_id is not None else prompt_inputs.get("graph_id", "")
 
         using_image_batch = _normalize_images(images) is not None
         trim_start = in_point * self.target_frame_time
