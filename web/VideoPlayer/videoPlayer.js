@@ -1263,11 +1263,14 @@ function registerPauseListener() {
             const totalFrames = Math.max(1, payload.total_frames);
             applyFrameState(node, {
                 totalFrames,
-                currentFrame: 1,
-                inPoint: 1,
-                outPoint: totalFrames,
+                currentFrame: payload.current_frame ?? node.currentFrameWidget?.value ?? 1,
+                inPoint: payload.in_point ?? node.inPointWidget?.value ?? 1,
+                outPoint: payload.out_point ?? node.outPointWidget?.value ?? totalFrames,
             }, { source: "init", updateVideo: true, force: true });
-            setWidgetValue(node, node.selectEveryNthFrameWidget, 1);
+            const selectEvery = Number.isFinite(Number(payload.select_every_nth_frame))
+                ? Number(payload.select_every_nth_frame)
+                : 1;
+            setWidgetValue(node, node.selectEveryNthFrameWidget, selectEvery);
             requestNodeRedraw(node);
         }
         node._lnlPausePayload = payload;
