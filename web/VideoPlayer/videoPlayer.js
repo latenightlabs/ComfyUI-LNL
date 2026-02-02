@@ -15,25 +15,105 @@ function createDoubleSliderWidget(hostNode, widgetName) {
     const doubleSliderWidget = {
         type: "double_slider",
         name: widgetName,
+        serialize: true,
         options: { min: 0, max: 100, step: 1, precision: 1, read_only: false },
         value: { current: 0 , startMarkerFrame: 0, endMarkerFrame: 100, currentFrame: 1, totalFrames: 1 },
         marker: true,
+        width_margin: 10,
         draw(ctx, node, widget_width, y, widget_height) { 
             Object.assign(this.inputEl.style, getLNLPositionStyle(ctx, widget_width, y, node, widget_height));
         },
-        onWidgetChanged(widget_name, new_value, old_value, widget) {
-            console.log(`Widget ${widget_name} changed from ${old_value} to ${new_value}`);
-        },
+        onWidgetChanged(widget_name, new_value, old_value, widget) {},
         mouse(event, pos, node) {
             return handleLNLMouseEvent(event, pos, node, this.positionUpdatedCallback);
         },
     };
-    doubleSliderWidget.inputEl = $el("doubleSliderWidget", { src: null });
+    doubleSliderWidget.inputEl = document.createElement("div");
+    doubleSliderWidget.inputEl.style.pointerEvents = "auto";
+    doubleSliderWidget.inputEl.style.touchAction = "none";
+    doubleSliderWidget.inputEl.style.cursor = "pointer";
+    doubleSliderWidget.inputEl.style.background = "transparent";
+    doubleSliderWidget.dragging = false;
+    const updateFromPointer = (event) => {
+        const rect = doubleSliderWidget.inputEl.getBoundingClientRect();
+        if (!rect.width) {
+            return;
+        }
+        const x = clamp(event.clientX - rect.left, 0, rect.width);
+        const nvalue = x / rect.width;
+        const value = doubleSliderWidget.options.min
+            + (doubleSliderWidget.options.max - doubleSliderWidget.options.min) * nvalue;
+        const sliderWidget = getPrimaryDoubleSliderWidget(hostNode) ?? doubleSliderWidget;
+        const existingValue = sliderWidget.value && typeof sliderWidget.value === "object" ? sliderWidget.value : {};
+        sliderWidget.value = {
+            ...existingValue,
+            current: value,
+        };
+        if (sliderWidget.positionUpdatedCallback) {
+            sliderWidget.positionUpdatedCallback(value);
+        } else if (doubleSliderWidget.positionUpdatedCallback) {
+            doubleSliderWidget.positionUpdatedCallback(value);
+        }
+    };
+    doubleSliderWidget.inputEl.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+            return;
+        }
+        event.preventDefault();
+        doubleSliderWidget.pointerIsDown = true;
+        const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
+        if (sliderWidget) {
+            sliderWidget.pointerIsDown = true;
+        }
+        doubleSliderWidget.dragging = true;
+        doubleSliderWidget.inputEl.setPointerCapture(event.pointerId);
+        updateFromPointer(event);
+    });
+    doubleSliderWidget.inputEl.addEventListener("pointermove", (event) => {
+        if (!doubleSliderWidget.dragging) {
+            return;
+        }
+        event.preventDefault();
+        updateFromPointer(event);
+    });
+    doubleSliderWidget.inputEl.addEventListener("pointerup", (event) => {
+        if (!doubleSliderWidget.dragging) {
+            return;
+        }
+        event.preventDefault();
+        doubleSliderWidget.dragging = false;
+        doubleSliderWidget.pointerIsDown = false;
+        const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
+        if (sliderWidget) {
+            sliderWidget.pointerIsDown = false;
+        }
+        try {
+            doubleSliderWidget.inputEl.releasePointerCapture(event.pointerId);
+        } catch {
+            // no-op: capture might already be released
+        }
+        updateFromPointer(event);
+    });
+    doubleSliderWidget.inputEl.addEventListener("pointercancel", (event) => {
+        doubleSliderWidget.dragging = false;
+        doubleSliderWidget.pointerIsDown = false;
+        const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
+        if (sliderWidget) {
+            sliderWidget.pointerIsDown = false;
+        }
+        try {
+            doubleSliderWidget.inputEl.releasePointerCapture(event.pointerId);
+        } catch {
+            // no-op
+        }
+    });
     doubleSliderWidget.positionUpdatedCallback = (value) => {
         pauseVideoIfPlaying(hostNode.previewWidget, hostNode.playerControlsWidget);
         const frameAtValue = hostNode.previewWidget.videoEl.getFrameForNValue(value);
-        const clampedValue = clamp(frameAtValue, 1, doubleSliderWidget.value.totalFrames);
-        hostNode.previewWidget.videoEl.setCurrentFrame(clampedValue);
+        const sliderWidget = getPrimaryDoubleSliderWidget(hostNode) ?? doubleSliderWidget;
+        const totalFrames = Math.max(1, sliderWidget?.value?.totalFrames ?? 1);
+        const clampedValue = clamp(frameAtValue, 1, totalFrames);
+        applyFrameState(hostNode, { currentFrame: clampedValue }, { source: "currentFrame", updateVideo: true });
     };    
     
     return doubleSliderWidget;
@@ -126,6 +206,146 @@ function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
     return playerControlsWidget;
 }
 
+function createTimelineWidget(hostNode) {
+    const element = document.createElement("div");
+    element.className = "lnl-timeline";
+
+    const trackEl = document.createElement("div");
+    trackEl.className = "lnl-timeline-track";
+
+    const preFillEl = document.createElement("div");
+    preFillEl.className = "lnl-timeline-pre";
+    trackEl.appendChild(preFillEl);
+
+    const fillEl = document.createElement("div");
+    fillEl.className = "lnl-timeline-fill";
+    trackEl.appendChild(fillEl);
+
+    const postFillEl = document.createElement("div");
+    postFillEl.className = "lnl-timeline-post";
+    trackEl.appendChild(postFillEl);
+
+    const inMarkerEl = document.createElement("div");
+    inMarkerEl.className = "lnl-timeline-marker lnl-timeline-marker-in";
+    trackEl.appendChild(inMarkerEl);
+
+    const outMarkerEl = document.createElement("div");
+    outMarkerEl.className = "lnl-timeline-marker lnl-timeline-marker-out";
+    trackEl.appendChild(outMarkerEl);
+
+    const currentMarkerEl = document.createElement("div");
+    currentMarkerEl.className = "lnl-timeline-marker lnl-timeline-marker-current";
+    trackEl.appendChild(currentMarkerEl);
+
+    const labelEl = document.createElement("div");
+    labelEl.className = "lnl-timeline-label";
+    trackEl.appendChild(labelEl);
+
+    element.appendChild(trackEl);
+
+    const timelineWidget = hostNode.addDOMWidget("timeline_widget", "lnl_timeline_widget", element, {
+        serialize: false,
+        hideOnZoom: false,
+    });
+    timelineWidget.computeSize = function (width) {
+        return [width, LiteGraph.NODE_WIDGET_HEIGHT];
+    };
+    timelineWidget.elements = {
+        trackEl,
+        preFillEl,
+        fillEl,
+        postFillEl,
+        inMarkerEl,
+        outMarkerEl,
+        currentMarkerEl,
+        labelEl,
+    };
+    timelineWidget.update = function (state) {
+        const totalFrames = Math.max(1, state.totalFrames || 1);
+        const currentFrame = clamp(state.currentFrame || 1, 1, totalFrames);
+        const inPoint = clamp(state.inPoint || 1, 1, totalFrames);
+        const outPoint = clamp(state.outPoint || totalFrames, 1, totalFrames);
+
+        const inPct = (inPoint / totalFrames) * 100;
+        const outPct = (outPoint / totalFrames) * 100;
+        const currentPct = (currentFrame / totalFrames) * 100;
+
+        preFillEl.style.width = `${inPct}%`;
+
+        const fillStart = inPct;
+        const fillEnd = clamp(currentPct, inPct, outPct);
+        fillEl.style.left = `${fillStart}%`;
+        fillEl.style.width = `${Math.max(0, fillEnd - fillStart)}%`;
+
+        postFillEl.style.left = `${outPct}%`;
+        postFillEl.style.width = `${Math.max(0, 100 - outPct)}%`;
+
+        inMarkerEl.style.left = `${inPct}%`;
+        outMarkerEl.style.left = `${outPct}%`;
+        currentMarkerEl.style.left = `${currentPct}%`;
+
+        labelEl.textContent = `Frame: ${currentFrame} / ${totalFrames}`;
+    };
+
+    const updateFromPointer = (event) => {
+        const rect = trackEl.getBoundingClientRect();
+        if (!rect.width) {
+            return;
+        }
+        const x = clamp(event.clientX - rect.left, 0, rect.width);
+        const nvalue = (x / rect.width) * 100;
+        if (!hostNode.previewWidget?.videoEl) {
+            return;
+        }
+        pauseVideoIfPlaying(hostNode.previewWidget, hostNode.playerControlsWidget);
+        const frameAtValue = hostNode.previewWidget.videoEl.getFrameForNValue(nvalue);
+        const totalFrames = getTotalFramesFromNode(hostNode);
+        const clampedValue = clamp(frameAtValue, 1, totalFrames);
+        applyFrameState(hostNode, { currentFrame: clampedValue }, { source: "currentFrame", updateVideo: true });
+    };
+
+    trackEl.style.cursor = "pointer";
+    trackEl.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+            return;
+        }
+        event.preventDefault();
+        timelineWidget.dragging = true;
+        trackEl.setPointerCapture(event.pointerId);
+        updateFromPointer(event);
+    });
+    trackEl.addEventListener("pointermove", (event) => {
+        if (!timelineWidget.dragging) {
+            return;
+        }
+        event.preventDefault();
+        updateFromPointer(event);
+    });
+    trackEl.addEventListener("pointerup", (event) => {
+        if (!timelineWidget.dragging) {
+            return;
+        }
+        event.preventDefault();
+        timelineWidget.dragging = false;
+        try {
+            trackEl.releasePointerCapture(event.pointerId);
+        } catch {
+            // no-op
+        }
+        updateFromPointer(event);
+    });
+    trackEl.addEventListener("pointercancel", (event) => {
+        timelineWidget.dragging = false;
+        try {
+            trackEl.releasePointerCapture(event.pointerId);
+        } catch {
+            // no-op
+        }
+    });
+
+    return timelineWidget;
+}
+
 // Video preview widget
 function createVideoPreviewWidget(hostNode) {
     const infiniteAR = 1000;
@@ -171,8 +391,8 @@ function createVideoPreviewWidget(hostNode) {
 
         let params = {}
         Object.assign(params, previewWidget.value.params);
-        if (params.filename) {
-            const jsonData = await processVideoEntry(params.filename, previewWidget.videoEl.duration);
+                if (params.filename) {
+                    const jsonData = await processVideoEntry(params.filename, previewWidget.videoEl.duration);
             if (jsonData) {
                 previewWidget.loaderEl.style['visibility'] = "hidden";
 
@@ -186,45 +406,44 @@ function createVideoPreviewWidget(hostNode) {
                 previewWidget.value.params.frameDuration = jsonData.frame_duration;
                 previewWidget.value.params.duration = jsonData.duration;
                 previewWidget.value.params.totalFrames = jsonData.total_frames;
-                hostNode.doubleSliderWidget.value.frameRate = jsonData.frame_rate;
-                if (!componentCreated) {
-                    hostNode.doubleSliderWidget.value.startMarkerFrame = 1;
-                    hostNode.doubleSliderWidget.value.endMarkerFrame = jsonData.total_frames;
-                    
-                    hostNode.inPointWidget.value = 1;
-                    hostNode.outPointWidget.value = jsonData.total_frames;
-
-                    updateSliderValues(hostNode.doubleSliderWidget, hostNode, 1, jsonData.total_frames);
-                }
-                else {
-                    if (!componentLoadedOrRefreshed) {
-                        // Component is created from scratch, not loaded or refreshed
-                        hostNode.currentFrameWidget.value = hostNode.currentFrameWidget.options.min;
-                        hostNode.inPointWidget.value = hostNode.inPointWidget.options.min;
-                        hostNode.outPointWidget.value = hostNode.outPointWidget.options.max;
-                    }
-
-                    previewWidget.videoEl.setCurrentFrame(hostNode.currentFrameWidget.value);
-                    previewWidget.videoEl.setInPoint(hostNode.inPointWidget.value);
-                    previewWidget.videoEl.setOutPoint(hostNode.outPointWidget.value);
-                    updateSliderValues(hostNode.doubleSliderWidget, hostNode, hostNode.currentFrameWidget.value, previewWidget.value.params.totalFrames);
-                }
+                const totalFrames = jsonData.total_frames;
+                const isFreshState = !componentCreated || !componentLoadedOrRefreshed;
+                const currentFrame = isFreshState ? 1 : hostNode.currentFrameWidget.value;
+                const inPoint = isFreshState ? 1 : hostNode.inPointWidget.value;
+                const outPoint = isFreshState ? totalFrames : hostNode.outPointWidget.value;
+                applyFrameState(hostNode, {
+                    totalFrames,
+                    frameRate: jsonData.frame_rate,
+                    currentFrame,
+                    inPoint,
+                    outPoint,
+                }, { source: "init", updateVideo: true });
 
                 let lastTime = 0;
+                const syncCurrentFrame = () => {
+                    const totalFrames = getTotalFramesFromNode(hostNode);
+                    if (!totalFrames) {
+                        return;
+                    }
+                    const currentFrame = clamp(previewWidget.videoEl.getCurrentFrame(), 1, totalFrames);
+                    applyFrameState(hostNode, { currentFrame }, { source: "currentFrame" });
+                };
                 function checkFrame() {
                     if (previewWidget.videoEl.currentTime !== lastTime) {
                         lastTime = previewWidget.videoEl.currentTime;
-                        
-                        const currentFrame = clamp(previewWidget.videoEl.getCurrentFrame(), 1, hostNode.doubleSliderWidget.value.totalFrames);
-                        hostNode.currentFrameWidget.value = currentFrame;
-                        updateSliderValues(hostNode.doubleSliderWidget, hostNode, currentFrame, jsonData.total_frames);
+                        syncCurrentFrame();
                     }
                     requestAnimationFrame(checkFrame);
                 }
+                previewWidget.videoEl.addEventListener('timeupdate', syncCurrentFrame);
+                previewWidget.videoEl.addEventListener('seeked', syncCurrentFrame);
                 previewWidget.videoEl.addEventListener('playing', (event) => {
                     checkFrame();
 
-                    hostNode.doubleSliderWidget.pointerIsDown = false;
+                    const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
+                    if (sliderWidget) {
+                        sliderWidget.pointerIsDown = false;
+                    }
                 });
                 previewWidget.videoEl.addEventListener('ended', (event) => {
                     setPlayIcon(hostNode.playerControlsWidget);
@@ -253,19 +472,32 @@ function createVideoPreviewWidget(hostNode) {
             previewWidget.value.params.frameDuration = 1;
             previewWidget.value.params.totalFrames = 1;
 
-            hostNode.currentFrameWidget.value = 1;
-            hostNode.inPointWidget.value = 1;
-            hostNode.outPointWidget.value = 1;
+            setWidgetValue(hostNode, hostNode.currentFrameWidget, 1);
+            setWidgetValue(hostNode, hostNode.inPointWidget, 1);
+            setWidgetValue(hostNode, hostNode.outPointWidget, 1);
 
-            hostNode.doubleSliderWidget.value.startMarkerFrame = 1;
-            hostNode.doubleSliderWidget.value.endMarkerFrame = 1;
-            hostNode.doubleSliderWidget.value.frameRate = 1;
+            const sliderWidgets = getDoubleSliderWidgets(hostNode);
+            for (const sliderWidget of sliderWidgets) {
+                sliderWidget.value.startMarkerFrame = 1;
+                sliderWidget.value.endMarkerFrame = 1;
+                sliderWidget.value.frameRate = 1;
+            }
 
             if (this) {
                 this.currentTime = 1;
             }
 
-            updateSliderValues(hostNode.doubleSliderWidget, hostNode, 1, 1);
+            const sliderWidget = getPrimaryDoubleSliderWidget(hostNode) ?? hostNode.doubleSliderWidget;
+            if (sliderWidget) {
+                updateSliderValues(sliderWidget, hostNode, 1, 1);
+            }
+            applyFrameState(hostNode, {
+                totalFrames: 1,
+                frameRate: 1,
+                currentFrame: 1,
+                inPoint: 1,
+                outPoint: 1,
+            }, { source: "error" });
             lnl_fitHeight(hostNode);
         }, 100);
     });
@@ -310,21 +542,36 @@ function createVideoPreviewWidget(hostNode) {
         return startFrame;
     };
     previewWidget.videoEl.getInPointFrame = function () {
-        const inFrame = hostNode.doubleSliderWidget.value.startMarkerFrame;
-        return inFrame;
+        const state = hostNode?._lnlFrameState;
+        if (state?.inPoint) {
+            return state.inPoint;
+        }
+        const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
+        return sliderWidget?.value?.startMarkerFrame ?? 1;
     };
     previewWidget.videoEl.getOutPointFrame = function () {
-        const outFrame = hostNode.doubleSliderWidget.value.endMarkerFrame;
-        return outFrame;
+        const state = hostNode?._lnlFrameState;
+        if (state?.outPoint) {
+            return state.outPoint;
+        }
+        const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
+        return sliderWidget?.value?.endMarkerFrame ?? this.getEndFrame();
     };
     previewWidget.videoEl.getEndFrame = function () {
         const endFrame = previewWidget.value.params.totalFrames;
         return endFrame;
     };
-    previewWidget.videoEl.setCurrentFrame = function (frame) {
-        const clampedFrame = clamp(frame, 1, hostNode.doubleSliderWidget.value.totalFrames);
-        this.currentTime = clampedFrame / hostNode.doubleSliderWidget.value.totalFrames * previewWidget.value.params.duration - previewWidget.value.params.frameDuration;
-        hostNode.currentFrameWidget.value = clampedFrame;
+    previewWidget.videoEl.setCurrentFrame = function (frame, options = {}) {
+        const totalFrames = getTotalFramesFromNode(hostNode) || previewWidget.value.params.totalFrames || 1;
+        const clampedFrame = clamp(frame, 1, totalFrames);
+        if (previewWidget.value.params.duration && previewWidget.value.params.frameDuration) {
+            this.currentTime = clampedFrame / totalFrames * previewWidget.value.params.duration - previewWidget.value.params.frameDuration;
+        } else {
+            this.currentTime = clampedFrame / totalFrames;
+        }
+        if (!options.silent) {
+            applyFrameState(hostNode, { currentFrame: clampedFrame }, { source: "currentFrame" });
+        }
     };
     previewWidget.videoEl.advanceOneFrame = function () {
         const endFrame = this.getEndFrame();
@@ -355,26 +602,12 @@ function createVideoPreviewWidget(hostNode) {
     previewWidget.videoEl.setInPoint = function (value) {
         const currentFrame = this.getCurrentFrame();
         const valueToSet = value ? value : currentFrame;
-        hostNode.doubleSliderWidget.value.startMarkerFrame = valueToSet;
-        hostNode.inPointWidget.value = valueToSet;
-
-        const outPointFrame = this.getOutPointFrame();
-        if (valueToSet > outPointFrame) {
-            hostNode.doubleSliderWidget.value.endMarkerFrame = this.getEndFrame();
-            hostNode.outPointWidget.value = this.getEndFrame();
-        }
+        applyFrameState(hostNode, { inPoint: valueToSet }, { source: "inPoint" });
     };
     previewWidget.videoEl.setOutPoint = function (value) {
         const currentFrame = this.getCurrentFrame();
         const valueToSet = value ? value : currentFrame;
-        hostNode.doubleSliderWidget.value.endMarkerFrame = valueToSet;
-        hostNode.outPointWidget.value = valueToSet;
-
-        const inPointFrame = this.getInPointFrame();
-        if (valueToSet < inPointFrame) {
-            hostNode.doubleSliderWidget.value.startMarkerFrame = this.getStartFrame();
-            hostNode.inPointWidget.value = this.getStartFrame();
-        }
+        applyFrameState(hostNode, { outPoint: valueToSet }, { source: "outPoint" });
     };
     previewWidget.playPauseTriggeredCallback = () => {
         updatePlayPauseControl(previewWidget, hostNode.playerControlsWidget)
@@ -410,11 +643,178 @@ function createLoaderOverlay(previewWidget) {
 
 // Utility
 function updateSliderValues(widget, node, currentFrame, totalFrames) {
-    widget.value.current = (currentFrame / totalFrames) * 100;
-    widget.value.currentFrame = currentFrame;
-    widget.value.totalFrames = totalFrames;
-    widget.label = `Frame: ${currentFrame} / ${totalFrames}`;
-    node.graph?.setDirtyCanvas(true);
+    if (!totalFrames || totalFrames <= 0) {
+        totalFrames = 1;
+    }
+    const clampedCurrent = clamp(currentFrame ?? 1, 1, totalFrames);
+    const existingValue = widget.value && typeof widget.value === "object" ? widget.value : {};
+    widget.value = {
+        ...existingValue,
+        current: (clampedCurrent / totalFrames) * 100,
+        currentFrame: clampedCurrent,
+        totalFrames,
+    };
+    widget.label = `Frame: ${clampedCurrent} / ${totalFrames}`;
+    requestNodeRedraw(node);
+}
+
+function getDoubleSliderWidgets(node) {
+    if (!node) {
+        return [];
+    }
+    const widgets = [];
+    if (Array.isArray(node.widgets)) {
+        for (const widget of node.widgets) {
+            if (!widget) {
+                continue;
+            }
+            if (widget.type === "double_slider" || widget.name === "in_out_point_slider") {
+                widgets.push(widget);
+            }
+        }
+    }
+    if (node.doubleSliderWidget && !widgets.includes(node.doubleSliderWidget)) {
+        widgets.push(node.doubleSliderWidget);
+    }
+    return widgets;
+}
+
+function getPrimaryDoubleSliderWidget(node) {
+    const widgets = getDoubleSliderWidgets(node);
+    if (!widgets.length) {
+        return null;
+    }
+    const withFrames = widgets.find((widget) => widget?.value?.totalFrames);
+    return withFrames ?? widgets[0];
+}
+
+function getTotalFramesFromNode(node) {
+    const stateTotal = node?._lnlFrameState?.totalFrames;
+    const sliderWidget = getPrimaryDoubleSliderWidget(node);
+    const sliderTotal = sliderWidget?.value?.totalFrames;
+    const paramsTotal = node?.previewWidget?.value?.params?.totalFrames;
+    return Math.max(1, stateTotal ?? sliderTotal ?? paramsTotal ?? 1);
+}
+
+function setWidgetValue(node, widget, value) {
+    if (!widget) {
+        return;
+    }
+    const targetNode = node ?? widget.node;
+    const canvas = app?.canvas;
+    if (widget.setValue && targetNode && canvas) {
+        const previousGuard = targetNode._lnlSuppressWidgetCallbacks;
+        targetNode._lnlSuppressWidgetCallbacks = true;
+        try {
+            widget.setValue(value, { e: null, node: targetNode, canvas });
+            return;
+        } catch (err) {
+            console.warn("LNL setWidgetValue fallback", err);
+        } finally {
+            targetNode._lnlSuppressWidgetCallbacks = previousGuard;
+        }
+    }
+    widget.value = value;
+    if (widget.inputEl && "value" in widget.inputEl) {
+        widget.inputEl.value = value;
+    }
+    if (widget.input && "value" in widget.input) {
+        widget.input.value = value;
+    }
+    if (widget.el && "value" in widget.el) {
+        widget.el.value = value;
+    }
+    if (widget.element && "value" in widget.element) {
+        widget.element.value = value;
+    }
+}
+
+function ensureFrameState(node) {
+    if (!node._lnlFrameState) {
+        node._lnlFrameState = {
+            totalFrames: 1,
+            frameRate: 1,
+            currentFrame: 1,
+            inPoint: 1,
+            outPoint: 1,
+            _lastChanged: "init",
+        };
+    }
+    return node._lnlFrameState;
+}
+
+function normalizeFrameState(state) {
+    state.totalFrames = Math.max(1, Math.floor(state.totalFrames || 1));
+    state.inPoint = clamp(Math.floor(state.inPoint || 1), 1, state.totalFrames);
+    state.outPoint = clamp(Math.floor(state.outPoint || state.totalFrames), 1, state.totalFrames);
+    if (state.inPoint > state.outPoint) {
+        if (state._lastChanged === "inPoint") {
+            state.outPoint = state.inPoint;
+        } else if (state._lastChanged === "outPoint") {
+            state.inPoint = state.outPoint;
+        } else {
+            state.outPoint = state.inPoint;
+        }
+    }
+    state.currentFrame = clamp(Math.floor(state.currentFrame || 1), 1, state.totalFrames);
+}
+
+function applyFrameState(node, updates, options = {}) {
+    const state = ensureFrameState(node);
+    if (options.source) {
+        state._lastChanged = options.source;
+    }
+    Object.assign(state, updates);
+    normalizeFrameState(state);
+
+    if (node.previewWidget?.value?.params) {
+        if (updates.totalFrames) {
+            node.previewWidget.value.params.totalFrames = state.totalFrames;
+        }
+        if (updates.frameRate) {
+            node.previewWidget.value.params.frameRate = state.frameRate;
+        }
+    }
+
+    const sliderWidgets = getDoubleSliderWidgets(node);
+    for (const sliderWidget of sliderWidgets) {
+        const existingValue = sliderWidget.value && typeof sliderWidget.value === "object" ? sliderWidget.value : {};
+        sliderWidget.value = {
+            ...existingValue,
+            startMarkerFrame: state.inPoint,
+            endMarkerFrame: state.outPoint,
+            frameRate: state.frameRate,
+        };
+        updateSliderValues(sliderWidget, node, state.currentFrame, state.totalFrames);
+    }
+
+    if (node.currentFrameWidget) setWidgetValue(node, node.currentFrameWidget, state.currentFrame);
+    if (node.inPointWidget) setWidgetValue(node, node.inPointWidget, state.inPoint);
+    if (node.outPointWidget) setWidgetValue(node, node.outPointWidget, state.outPoint);
+    if (node.timelineWidget?.update) {
+        node.timelineWidget.update(state);
+    }
+    requestNodeRedraw(node);
+
+    if (options.updateVideo && node.previewWidget?.videoEl) {
+        node.previewWidget.videoEl.setCurrentFrame(state.currentFrame, { silent: true });
+    }
+}
+
+function syncTimelineFromVideo(node) {
+    if (!node?.previewWidget?.videoEl) {
+        return;
+    }
+    const totalFrames = getTotalFramesFromNode(node);
+    const currentFrame = clamp(node.previewWidget.videoEl.getCurrentFrame(), 1, totalFrames);
+    const inPoint = clamp(node.previewWidget.videoEl.getInPointFrame(), 1, totalFrames);
+    const outPoint = clamp(node.previewWidget.videoEl.getOutPointFrame(), 1, totalFrames);
+    applyFrameState(node, {
+        totalFrames,
+        currentFrame,
+        inPoint,
+        outPoint,
+    }, { source: "sync" });
 }
 
 function updatePlayPauseControl(previewWidget, playerControlsWidget) {
@@ -500,10 +900,18 @@ which is licensed under the GNU General Public License version 3 (GPL-3.0):
 function injectHidden(widget) {
     widget.computeSize = (target_width) => {
         if (widget.hidden) {
-            return [0, -4];
+            return [0, 0];
         }
         return [target_width, 20];
     };
+    widget.computeLayoutSize = () => ({
+        minWidth: 0,
+        minHeight: 0,
+        maxWidth: 0,
+        maxHeight: 0,
+    });
+    widget.draw = () => {};
+    widget.mouse = () => true;
     widget._type = widget.type
     Object.defineProperty(widget, "type", {
         set : function(value) {
@@ -517,6 +925,110 @@ function injectHidden(widget) {
         }
     });
     widget.hidden = true;
+}
+
+function hideWidgetVisually(widget) {
+    if (!widget) {
+        return;
+    }
+    enableHiddenTypeToggle(widget);
+    widget.hidden = widget.hidden ?? true;
+    if (!widget._lnlOriginalComputeSize) {
+        widget._lnlOriginalComputeSize = widget.computeSize?.bind(widget);
+    }
+    if (!widget._lnlOriginalDraw) {
+        widget._lnlOriginalDraw = widget.draw?.bind(widget);
+    }
+    if (!widget._lnlOriginalMouse) {
+        widget._lnlOriginalMouse = widget.mouse?.bind(widget);
+    }
+    widget.computeSize = (target_width) => {
+        if (widget.hidden) {
+            return [0, 0];
+        }
+        if (widget._lnlOriginalComputeSize) {
+            return widget._lnlOriginalComputeSize(target_width);
+        }
+        return [target_width, LiteGraph.NODE_WIDGET_HEIGHT];
+    };
+    widget.draw = (ctx, node, widget_width, y, widget_height) => {
+        if (widget.hidden) {
+            return;
+        }
+        if (widget._lnlOriginalDraw) {
+            return widget._lnlOriginalDraw(ctx, node, widget_width, y, widget_height);
+        }
+    };
+    widget.mouse = function () {
+        if (widget.hidden) {
+            return true;
+        }
+        if (widget._lnlOriginalMouse) {
+            return widget._lnlOriginalMouse(...arguments);
+        }
+        return false;
+    };
+    widget.serialize = true;
+    applyWidgetVisibility(widget);
+}
+
+function enableHiddenTypeToggle(widget) {
+    if (!widget || widget._lnlHiddenTypeToggle) {
+        return;
+    }
+    widget._lnlHiddenTypeToggle = true;
+    widget._lnlOriginalType = widget.type;
+    Object.defineProperty(widget, "type", {
+        get() {
+            return widget.hidden ? "hidden" : widget._lnlOriginalType;
+        },
+        set(value) {
+            widget._lnlOriginalType = value;
+        },
+    });
+}
+
+function applyWidgetVisibility(widget) {
+    if (!widget) {
+        return;
+    }
+    const el = widget.inputEl || widget.input || widget.el || widget.element;
+    if (!el || !el.style) {
+        return;
+    }
+    if (widget.hidden) {
+        el.style.display = "none";
+        el.style.pointerEvents = "none";
+        el.style.height = "0px";
+        el.style.width = "0px";
+    } else {
+        el.style.display = "";
+        el.style.pointerEvents = "";
+        el.style.height = "";
+        el.style.width = "";
+    }
+}
+
+function forceHiddenWidget(widget) {
+    if (!widget) {
+        return;
+    }
+    injectHidden(widget);
+    widget.hidden = true;
+    widget.type = "hidden";
+    widget.height = 0;
+    if (widget.inputEl?.style) {
+        widget.inputEl.style.display = "none";
+        widget.inputEl.style.position = "absolute";
+        widget.inputEl.style.left = "-99999px";
+        widget.inputEl.style.top = "0px";
+        widget.inputEl.style.opacity = "0";
+        widget.inputEl.style.pointerEvents = "none";
+        widget.inputEl.style.width = "0px";
+        widget.inputEl.style.height = "0px";
+        widget.inputEl.style.minHeight = "0px";
+        widget.inputEl.style.minWidth = "0px";
+    }
 }
 
 function updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget) {
@@ -538,6 +1050,8 @@ function updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget
             customHeightWidget.hidden = true;
             break;
     }
+    applyWidgetVisibility(customWidthWidget);
+    applyWidgetVisibility(customHeightWidget);
 }
 
 // Create widgets
@@ -548,8 +1062,11 @@ export async function createFrameSelectorWidgets(nodeType) {
 
         const that = this;
 
-        // Create double slider widget
+        // Create double slider widget (hidden canvas store)
         const doubleSliderWidget = createDoubleSliderWidget(this, "in_out_point_slider");
+        forceHiddenWidget(doubleSliderWidget);
+        doubleSliderWidget.inputEl.style.display = "none";
+        doubleSliderWidget.inputEl.style.pointerEvents = "none";
         this.doubleSliderWidget = doubleSliderWidget;
         updateSliderValues(doubleSliderWidget, this, 1, 1);
 
@@ -590,21 +1107,41 @@ export async function createFrameSelectorWidgets(nodeType) {
         const previewWidget = createVideoPreviewWidget(this);
         this.previewWidget = previewWidget;
 
+        // Add timeline widget
+        const timelineWidget = createTimelineWidget(this);
+        this.timelineWidget = timelineWidget;
+
         const sizeWidget = this.widgets.find((w) => w.name === 'force_size');
         const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');
         const customHeightWidget = this.widgets.find((w) => w.name === 'custom_height');
         if (sizeWidget !== undefined) {
-            injectHidden(customWidthWidget);
-            injectHidden(customHeightWidget);
+            hideWidgetVisually(customWidthWidget);
+            hideWidgetVisually(customHeightWidget);
+            if (customWidthWidget && (customWidthWidget.value === null || customWidthWidget.value === undefined)) {
+                customWidthWidget.value = customWidthWidget.options?.default ?? 512;
+            }
+            if (customHeightWidget && (customHeightWidget.value === null || customHeightWidget.value === undefined)) {
+                customHeightWidget.value = customHeightWidget.options?.default ?? 512;
+            }
             sizeWidget.callback = (value) => {
                 updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
                 lnl_fitHeight(that);
             };
+            updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
+            lnl_fitHeight(that);
         }
 
-        // Add double slider widget
+        // Add double slider widget (keep it hidden but serialized)
         document.body.appendChild(doubleSliderWidget.inputEl);
-        this.addCustomWidget(doubleSliderWidget);
+        const addedSliderWidget = this.addCustomWidget(doubleSliderWidget);
+        const resolvedSliderWidgets = getDoubleSliderWidgets(this);
+        const resolvedSliderWidget = addedSliderWidget ?? resolvedSliderWidgets[0] ?? doubleSliderWidget;
+        for (const sliderWidget of resolvedSliderWidgets) {
+            sliderWidget.inputEl = doubleSliderWidget.inputEl;
+            sliderWidget.positionUpdatedCallback = doubleSliderWidget.positionUpdatedCallback;
+            forceHiddenWidget(sliderWidget);
+        }
+        this.doubleSliderWidget = resolvedSliderWidget;
 
         // Create player controls widget
         const playerControlsWidget = createPlayerControlsWidget("player_controls", that, (control) => {
@@ -612,19 +1149,26 @@ export async function createFrameSelectorWidgets(nodeType) {
                 case PlayerControls.gotoStart:
                     pauseVideoIfPlaying(previewWidget, playerControlsWidget);
                     previewWidget.videoEl.gotoStart();
+                    syncTimelineFromVideo(that);
                     break;
                 case PlayerControls.setInPoint:
                     previewWidget.videoEl.setInPoint();
-                    that.inPointWidget.value = doubleSliderWidget.value.startMarkerFrame;
-                    that.graph?.setDirtyCanvas(true);
+                    {
+                        const sliderWidget = getPrimaryDoubleSliderWidget(that) ?? doubleSliderWidget;
+                        setWidgetValue(that, that.inPointWidget, sliderWidget.value.startMarkerFrame);
+                    }
+                    syncTimelineFromVideo(that);
+                    that.graph?.setDirtyCanvas(true, true);
                     break;
                 case PlayerControls.gotoInPoint:
                     pauseVideoIfPlaying(previewWidget, playerControlsWidget);
                     previewWidget.videoEl.gotoInPoint();
+                    syncTimelineFromVideo(that);
                     break;
                 case PlayerControls.stepBackward:
                     pauseVideoIfPlaying(previewWidget, playerControlsWidget);
                     previewWidget.videoEl.regressOneFrame();
+                    syncTimelineFromVideo(that);
                     break;
                 case PlayerControls.playPause:
                     updatePlayPauseControl(previewWidget, playerControlsWidget);
@@ -633,23 +1177,31 @@ export async function createFrameSelectorWidgets(nodeType) {
                     } else {
                         previewWidget.videoEl.pause();
                     }
+                    syncTimelineFromVideo(that);
                     break;
                 case PlayerControls.stepForward:
                     pauseVideoIfPlaying(previewWidget, playerControlsWidget);
                     previewWidget.videoEl.advanceOneFrame();
+                    syncTimelineFromVideo(that);
                     break;
                 case PlayerControls.gotoOutPoint:
                     pauseVideoIfPlaying(previewWidget, playerControlsWidget);
                     previewWidget.videoEl.gotoOutPoint();
+                    syncTimelineFromVideo(that);
                     break;
                 case PlayerControls.setOutPoint:
                     previewWidget.videoEl.setOutPoint();
-                    that.outPointWidget.value = doubleSliderWidget.value.endMarkerFrame;
-                    that.graph?.setDirtyCanvas(true);
+                    {
+                        const sliderWidget = getPrimaryDoubleSliderWidget(that) ?? doubleSliderWidget;
+                        setWidgetValue(that, that.outPointWidget, sliderWidget.value.endMarkerFrame);
+                    }
+                    syncTimelineFromVideo(that);
+                    that.graph?.setDirtyCanvas(true, true);
                     break;
                 case PlayerControls.gotoEnd:
                     pauseVideoIfPlaying(previewWidget, playerControlsWidget);
                     previewWidget.videoEl.gotoEnd();
+                    syncTimelineFromVideo(that);
                     break;
             }                
         });
@@ -657,16 +1209,25 @@ export async function createFrameSelectorWidgets(nodeType) {
 
         // Add In/Out point and frame widgets
         const currentFrameWidget = this.addWidget("number", "current_frame", -1, (value) => {
+            if (this._lnlSuppressWidgetCallbacks) {
+                return;
+            }
             previewWidget.videoEl.setCurrentFrame(value);
         }, { min: 1, max: 1, step: 10, precision: 0 });
         this.currentFrameWidget = currentFrameWidget;
 
         const inPointWidget = this.addWidget("number", "in_point", -1, (value) => {
+            if (this._lnlSuppressWidgetCallbacks) {
+                return;
+            }
             previewWidget.videoEl.setInPoint(value);
         }, { min: 1, max: 1, step: 10, precision: 0 });
         this.inPointWidget = inPointWidget;
 
         const outPointWidget = this.addWidget("number", "out_point", -1, (value) => {
+            if (this._lnlSuppressWidgetCallbacks) {
+                return;
+            }
             previewWidget.videoEl.setOutPoint(value);
         }, { min: 1, max: 1, step: 10, precision: 0 });
         this.outPointWidget = outPointWidget;
@@ -678,7 +1239,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         // Make sure to reload video after refreshing
         setTimeout(() => {
             pathWidget.callback(pathWidget.value, true);
-            this.graph?.setDirtyCanvas(true);
+            this.graph?.setDirtyCanvas(true, true);
         }, 10);
 
         // Cleanup
@@ -701,6 +1262,12 @@ export async function createFrameSelectorWidgets(nodeType) {
         const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');
         const customHeightWidget = this.widgets.find((w) => w.name === 'custom_height');
         if (sizeWidget !== undefined) {
+            if (customWidthWidget && (customWidthWidget.value === null || customWidthWidget.value === undefined)) {
+                setWidgetValue(this, customWidthWidget, customWidthWidget.options?.default ?? 512);
+            }
+            if (customHeightWidget && (customHeightWidget.value === null || customHeightWidget.value === undefined)) {
+                setWidgetValue(this, customHeightWidget, customHeightWidget.options?.default ?? 512);
+            }
             updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
             lnl_fitHeight(this);
         }
@@ -715,5 +1282,14 @@ which is licensed under the GNU General Public License version 3 (GPL-3.0):
 */
 function lnl_fitHeight(node) {
     node.setSize([node.size[0], node.computeSize([node.size[0], node.size[1]])[1]])
-    node?.graph?.setDirtyCanvas(true);
+    requestNodeRedraw(node);
+}
+
+function requestNodeRedraw(node) {
+    node?.graph?.setDirtyCanvas?.(true, true);
+    node?.setDirtyCanvas?.(true, true);
+    app?.canvas?.setDirty?.(true, true);
+    if (node?.graph) {
+        node.graph._version = (node.graph._version ?? 0) + 1;
+    }
 }

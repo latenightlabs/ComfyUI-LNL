@@ -14,6 +14,22 @@ Portions of this code are adapted from GitHub repository `https://github.com/Kos
 which is licensed under the GNU General Public License version 3 (GPL-3.0):
 
 """
+
+def _safe_int(value, default):
+    try:
+        if value is None:
+            return default
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+def _safe_float(value, default):
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 def getImageBatch(full_video_path, number_of_frames_to_process, select_every_nth_frame, starting_frame, force_size, custom_width, custom_height):
     generatedImages = lnl_cv_frame_generator(full_video_path, number_of_frames_to_process, starting_frame, select_every_nth_frame)
     (width, height, target_frame_time) = next(generatedImages)
@@ -61,7 +77,7 @@ class FrameSelectorV3():
 
     RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "STRING", "INT", "INT", "INT", "INT", "INT", "VHS_AUDIO",)
     RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame in", "Frame out", "Filename", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)", "Frame rate", "audio",)
-    OUTPUT_NODE = True
+    OUTPUT_NODE = False
     CATEGORY = "LNL"
     FUNCTION = "process_video"
 
@@ -74,16 +90,35 @@ class FrameSelectorV3():
         prompt=None,
         unique_id=None
     ):
+        if custom_width is None:
+            custom_width = 512
+        if custom_height is None:
+            custom_height = 512
         prompt_inputs = prompt[unique_id]["inputs"]
         full_video_path = lnl_fix_path(video_path)
 
-        in_point = prompt_inputs["in_out_point_slider"]["startMarkerFrame"]
-        out_point = prompt_inputs["in_out_point_slider"]["endMarkerFrame"]
-        current_frame = prompt_inputs["in_out_point_slider"]["currentFrame"]
-        total_frames = prompt_inputs["in_out_point_slider"]["totalFrames"]
-        frame_rate = prompt_inputs["in_out_point_slider"]["frameRate"]
+        slider_data = prompt_inputs.get("in_out_point_slider") or {}
+        total_frames = _safe_int(slider_data.get("totalFrames"), 0)
+        frame_rate = _safe_float(slider_data.get("frameRate"), 0.0)
 
-        select_every_nth_frame = prompt_inputs["select_every_nth_frame"]
+        if total_frames <= 0 or frame_rate <= 0.0:
+            info_frame_rate, info_total_frames, _ = get_video_info(full_video_path)
+            if total_frames <= 0:
+                total_frames = _safe_int(info_total_frames, 1)
+            if frame_rate <= 0.0:
+                frame_rate = _safe_float(info_frame_rate, 1.0)
+
+        in_point = _safe_int(prompt_inputs.get("in_point"), _safe_int(slider_data.get("startMarkerFrame"), 1))
+        out_point = _safe_int(prompt_inputs.get("out_point"), _safe_int(slider_data.get("endMarkerFrame"), total_frames))
+        current_frame = _safe_int(prompt_inputs.get("current_frame"), _safe_int(slider_data.get("currentFrame"), in_point))
+
+        in_point = max(1, min(in_point, total_frames))
+        out_point = max(in_point, min(out_point, total_frames))
+        current_frame = max(1, min(current_frame, total_frames))
+
+        select_every_nth_frame = _safe_int(prompt_inputs.get("select_every_nth_frame"), 1)
+        if select_every_nth_frame <= 0:
+            select_every_nth_frame = 1
 
         frames_to_process = out_point - in_point + 1
         starting_frame = in_point
@@ -113,7 +148,7 @@ class FrameSelectorV4(FrameSelectorV3):
 
     RETURN_TYPES = ("IMAGE", "IMAGE", "INT", "INT", "STRING", "INT", "INT", "INT", "INT", "INT", "FLOAT", "AUDIO",)
     RETURN_NAMES = ("Current image", "Image Batch (in/out)", "Frame in", "Frame out", "Filename", "Frame count (rel)", "Frame count (abs)", "Current frame (rel)", "Current frame (abs)", "Frame rate (INT)", "Frame rate (FLOAT)", "audio",)
-    OUTPUT_NODE = True
+    OUTPUT_NODE = False
     CATEGORY = "LNL"
     FUNCTION = "process_video"
 
@@ -126,24 +161,22 @@ class FrameSelectorV4(FrameSelectorV3):
         prompt=None,
         unique_id=None
     ):
-        prompt_inputs = prompt[unique_id]["inputs"]
         full_video_path = lnl_fix_path(video_path)
 
-        in_point = prompt_inputs["in_out_point_slider"]["startMarkerFrame"]
-        out_point = prompt_inputs["in_out_point_slider"]["endMarkerFrame"]
-        current_frame = prompt_inputs["in_out_point_slider"]["currentFrame"]
-        total_frames = prompt_inputs["in_out_point_slider"]["totalFrames"]
-        frame_rate = prompt_inputs["in_out_point_slider"]["frameRate"]
-
-        select_every_nth_frame = prompt_inputs["select_every_nth_frame"]
-
-        frames_to_process = out_point - in_point + 1
-        starting_frame = in_point
-
         result = super().process_video(video_path, force_size, custom_width, custom_height, prompt, unique_id)
+        in_point = result[2]
+        frames_to_process = result[5]
 
-        audio = lnl_lazy_get_audio(full_video_path, starting_frame * self.target_frame_time,
-                                frames_to_process*self.target_frame_time*select_every_nth_frame)
+        prompt_inputs = prompt[unique_id]["inputs"]
+        select_every_nth_frame = _safe_int(prompt_inputs.get("select_every_nth_frame"), 1)
+        if select_every_nth_frame <= 0:
+            select_every_nth_frame = 1
+
+        audio = lnl_lazy_get_audio(
+            full_video_path,
+            in_point * self.target_frame_time,
+            frames_to_process * self.target_frame_time * select_every_nth_frame
+        )
 
         return result[:9] + (int(result[9]), result[9], audio,)
 

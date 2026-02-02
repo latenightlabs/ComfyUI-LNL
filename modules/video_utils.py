@@ -2,6 +2,7 @@ import subprocess
 import shutil
 import os
 import re
+import json
 from collections.abc import Mapping
 
 import cv2
@@ -306,29 +307,107 @@ def lnl_target_size(width, height, force_size, custom_width, custom_height) -> t
     return (width, height)
 
 def get_video_info(video_path):
-    if ffmpeg_path is None:
-        raise Exception("FFMPEG path not set")
-
-    full_video_path = os.path.join(base_path, video_path)
+    full_video_path = video_path
+    if not os.path.isabs(full_video_path) and not os.path.exists(full_video_path):
+        full_video_path = os.path.join(base_path, video_path)
     if not os.path.exists(full_video_path):
         raise Exception(f"Video path does not exist: {full_video_path}")
 
-    cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-           '-show_entries', 'stream=r_frame_rate,nb_frames', '-show_entries', 'format=duration',
-           '-of', 'default=noprint_wrappers=1:nokey=1',
-           full_video_path]
-    process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    output = process.stdout.splitlines()
+    frame_rate = None
+    total_frames = None
+    duration = None
 
-    frame_rate_str = output[0]
-    try:
-        num, den = map(float, frame_rate_str.split('/'))
-        frame_rate = num / den
-    except ValueError:
-        frame_rate = float(frame_rate_str)
+    ffprobe_cmd = shutil.which("ffprobe")
+    if ffprobe_cmd is None and ffmpeg_path is not None:
+        ffprobe_name = "ffprobe.exe" if os.name == "nt" else "ffprobe"
+        ffprobe_candidate = os.path.join(os.path.dirname(ffmpeg_path), ffprobe_name)
+        if os.path.exists(ffprobe_candidate):
+            ffprobe_cmd = ffprobe_candidate
 
-    total_frames = int(output[1]) + 1
-    duration = float(output[2])
+    if ffprobe_cmd is not None:
+        cmd = [
+            ffprobe_cmd, '-v', 'error', '-select_streams', 'v:0',
+            '-count_frames',
+            '-show_entries', 'stream=avg_frame_rate,r_frame_rate,nb_frames,nb_read_frames,duration',
+            '-show_entries', 'format=duration',
+            '-of', 'json',
+            full_video_path,
+        ]
+        process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        try:
+            data = json.loads(process.stdout) if process.stdout else {}
+        except json.JSONDecodeError:
+            data = {}
+
+        stream = None
+        streams = data.get("streams") or []
+        if streams:
+            stream = streams[0]
+
+        def _parse_rate(rate_value):
+            if rate_value is None:
+                return None
+            if isinstance(rate_value, (int, float)):
+                return float(rate_value)
+            if isinstance(rate_value, str):
+                if "/" in rate_value:
+                    try:
+                        num, den = map(float, rate_value.split("/", 1))
+                        if den != 0:
+                            return num / den
+                    except ValueError:
+                        return None
+                try:
+                    return float(rate_value)
+                except ValueError:
+                    return None
+            return None
+
+        if stream:
+            frame_rate = _parse_rate(stream.get("avg_frame_rate")) or _parse_rate(stream.get("r_frame_rate"))
+            nb_frames = stream.get("nb_frames")
+            nb_read_frames = stream.get("nb_read_frames")
+            stream_duration = stream.get("duration")
+
+            if isinstance(nb_frames, str) and nb_frames.isdigit():
+                total_frames = int(nb_frames)
+            elif isinstance(nb_read_frames, str) and nb_read_frames.isdigit():
+                total_frames = int(nb_read_frames)
+
+            try:
+                if duration is None and stream_duration is not None:
+                    duration = float(stream_duration)
+            except ValueError:
+                duration = None
+
+        if duration is None:
+            try:
+                duration = float(data.get("format", {}).get("duration"))
+            except (TypeError, ValueError):
+                duration = None
+
+        if total_frames is None and frame_rate and duration:
+            total_frames = int(round(duration * frame_rate))
+
+    if frame_rate is None or total_frames is None or duration is None:
+        cap = cv2.VideoCapture(full_video_path)
+        if cap.isOpened():
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            if frame_rate is None and fps > 0:
+                frame_rate = fps
+            if total_frames is None and frame_count > 0:
+                total_frames = int(frame_count)
+            if duration is None and fps > 0 and frame_count > 0:
+                duration = frame_count / fps
+        cap.release()
+
+    if frame_rate is None or frame_rate <= 0:
+        frame_rate = 1.0
+    if total_frames is None or total_frames <= 0:
+        total_frames = 1
+    if duration is None or duration <= 0:
+        duration = total_frames / frame_rate
 
     return frame_rate, total_frames, duration
 
