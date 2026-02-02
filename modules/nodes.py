@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 import torch.nn.functional as F
 from .video_utils import *
-from .lnl_pause_messaging import send_and_wait, TimeoutResponse
+from .lnl_pause_messaging import send_and_wait, TimeoutResponse, send_progress
 from .utils import lnl_fix_path
 
 import folder_paths
@@ -68,13 +68,14 @@ def _resize_image_batch(images, force_size, custom_width, custom_height):
     s = lnl_common_upscale(s, new_size[0], new_size[1], "lanczos", "center")
     return s.movedim(1, -1)
 
-def _save_image_sequence(images, unique_id):
+def _save_image_sequence(images, unique_id, progress_callback=None):
     images = _normalize_images(images)
     if images is None:
         return None
     temp_dir = folder_paths.get_temp_directory()
     subfolder = "lnl_frame_selector"
     target_dir = os.path.join(temp_dir, subfolder)
+    _cleanup_temp_sequences(target_dir)
     os.makedirs(target_dir, exist_ok=True)
     timestamp = int(time.time() * 1000)
     prefix = f"lnl_seq_{unique_id}_{timestamp}"
@@ -87,6 +88,8 @@ def _save_image_sequence(images, unique_id):
         else:
             images_np = np.clip(images_np, 0.0, 255.0)
         images_np = images_np.astype(np.uint8)
+    total_count = int(images_np.shape[0]) if images_np.ndim >= 1 else 0
+    step = max(1, total_count // 20) if total_count else 1
     for idx, frame in enumerate(images_np, start=1):
         filename = f"{prefix}_{str(idx).zfill(pad)}.png"
         file_path = os.path.join(target_dir, filename)
@@ -94,14 +97,33 @@ def _save_image_sequence(images, unique_id):
             Image.fromarray(frame).save(file_path)
         except Exception:
             Image.fromarray(frame[:, :, :3]).save(file_path)
+        if progress_callback and (idx == 1 or idx % step == 0 or idx == total_count):
+            progress_callback(idx, total_count)
     return {
         "prefix": prefix,
-        "count": int(images_np.shape[0]) if images_np.ndim >= 1 else 0,
+        "count": total_count,
         "subfolder": subfolder,
         "type": "temp",
         "ext": "png",
         "pad": pad,
     }
+
+def _cleanup_temp_sequences(target_dir, max_age_seconds=7200):
+    if not os.path.isdir(target_dir):
+        return
+    now = time.time()
+    try:
+        for filename in os.listdir(target_dir):
+            if not filename.startswith("lnl_seq_") or not filename.endswith(".png"):
+                continue
+            full_path = os.path.join(target_dir, filename)
+            try:
+                if now - os.path.getmtime(full_path) > max_age_seconds:
+                    os.remove(full_path)
+            except OSError:
+                continue
+    except OSError:
+        return
 
 def _empty_audio_dict(sample_rate=44100):
     return {
@@ -122,6 +144,8 @@ def _normalize_audio_dict(audio):
 def _ensure_waveform_tensor(waveform):
     if waveform is None:
         return None
+    if not isinstance(waveform, torch.Tensor):
+        waveform = torch.as_tensor(waveform)
     if waveform.dim() == 1:
         waveform = waveform.unsqueeze(0).unsqueeze(0)
     elif waveform.dim() == 2:
@@ -149,11 +173,16 @@ def _align_audio_to_video(audio, total_duration, trim_start, trim_duration):
     if not audio_dict:
         return audio
     sample_rate = int(audio_dict.get("sample_rate") or 44100)
+    if sample_rate <= 0:
+        sample_rate = 44100
     waveform = _ensure_waveform_tensor(audio_dict.get("waveform"))
     if waveform is None:
         return _empty_audio_dict(sample_rate)
+    if waveform.numel() == 0:
+        return _empty_audio_dict(sample_rate)
 
-    total_samples = int(round(max(0.0, total_duration) * sample_rate))
+    total_target = max(0.0, total_duration, trim_start + trim_duration)
+    total_samples = int(round(total_target * sample_rate))
     waveform = _pad_or_crop_waveform(waveform, total_samples)
 
     start_samples = int(round(max(0.0, trim_start) * sample_rate))
@@ -256,6 +285,10 @@ class FrameSelectorV3():
         total_frames = _safe_int(slider_data.get("totalFrames"), 0)
         frame_rate = _safe_float(slider_data.get("frameRate"), 0.0)
 
+        graph_id_value = graph_id if graph_id is not None else prompt_inputs.get("graph_id", "")
+        if pause_on_execute:
+            send_progress(unique_id, graph_id_value, "Reading media info...")
+
         full_video_path = None
         if using_image_batch:
             total_from_images = _get_images_length(images)
@@ -277,7 +310,6 @@ class FrameSelectorV3():
         current_frame = _safe_int(prompt_inputs.get("current_frame"), _safe_int(slider_data.get("currentFrame"), in_point))
 
         if pause_on_execute:
-            graph_id_value = graph_id if graph_id is not None else prompt_inputs.get("graph_id", "")
             payload = {
                 "current_frame": current_frame,
                 "in_point": in_point,
@@ -286,7 +318,18 @@ class FrameSelectorV3():
                 "frame_rate": frame_rate,
             }
             if using_image_batch:
-                preview_sequence = _save_image_sequence(images, unique_id)
+                send_progress(unique_id, graph_id_value, "Preparing image preview...", 0, total_frames)
+                preview_sequence = _save_image_sequence(
+                    images,
+                    unique_id,
+                    progress_callback=lambda current, total: send_progress(
+                        unique_id,
+                        graph_id_value,
+                        f"Preparing image preview... ({current}/{total})",
+                        current,
+                        total,
+                    ),
+                )
                 if preview_sequence:
                     preview_sequence["frame_rate"] = frame_rate
                     payload["preview_sequence"] = preview_sequence
@@ -309,6 +352,8 @@ class FrameSelectorV3():
         starting_frame = in_point
 
         if using_image_batch:
+            if pause_on_execute:
+                send_progress(unique_id, graph_id_value, "Preparing frames...")
             resized_images = _resize_image_batch(images, force_size, custom_width, custom_height)
             current_index = max(0, current_frame - 1)
             current_image = resized_images[current_index:current_index + 1]
@@ -319,13 +364,19 @@ class FrameSelectorV3():
             audio_value = audio if audio is not None else _empty_audio_bytes()
             filename_value = ""
         else:
+            if pause_on_execute:
+                send_progress(unique_id, graph_id_value, "Extracting frames...")
             (current_image, _) = getImageBatch(full_video_path, 1, 1, current_frame - 1, force_size, custom_width, custom_height)
             (in_out_images, target_frame_time) = getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame - 1, force_size, custom_width, custom_height)
             self.target_frame_time = target_frame_time
 
             if audio is not None:
+                if pause_on_execute:
+                    send_progress(unique_id, graph_id_value, "Aligning audio...")
                 audio_value = audio
             else:
+                if pause_on_execute:
+                    send_progress(unique_id, graph_id_value, "Extracting audio...")
                 audio_value = lnl_lazy_eval(lambda: lnl_get_audio(full_video_path, starting_frame * target_frame_time,
                                        frames_to_process*target_frame_time*select_every_nth_frame))
             filename_value = video_path
@@ -400,6 +451,8 @@ class FrameSelectorV4(FrameSelectorV3):
         trim_duration = frames_to_process * self.target_frame_time * select_every_nth_frame
         total_duration = total_frames * self.target_frame_time
         if audio is not None:
+            if pause_on_execute:
+                send_progress(unique_id, graph_id_value, "Aligning audio...")
             audio_value = _align_audio_to_video(audio, total_duration, trim_start, trim_duration)
         elif using_image_batch:
             audio_value = _empty_audio_dict()

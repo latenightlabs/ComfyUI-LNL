@@ -9,6 +9,10 @@ function setupFrameSelectorNodeHandlers(nodeType) {
     const originalOnExecutionStart = nodeType.prototype.onExecutionStart;
     nodeType.prototype.onExecutionStart = function () {
         this.previewWidget.videoEl.pause();
+        const pauseWidget = this.widgets?.find((w) => w.name === "pause_on_execute");
+        if (pauseWidget?.value) {
+            this.previewWidget?.setProcessing?.(true, "Processing media...");
+        }
 
         originalOnExecutionStart?.apply(this, arguments);
     };
@@ -16,6 +20,7 @@ function setupFrameSelectorNodeHandlers(nodeType) {
     const originalOnExecuted = nodeType.prototype.onExecuted;
     nodeType.prototype.onExecuted = function (output) {
         originalOnExecuted?.apply(this, arguments);
+        this.previewWidget?.setProcessing?.(false);
         const valueOrFirst = (value) => {
             if (Array.isArray(value)) {
                 return value.length ? value[0] : undefined;

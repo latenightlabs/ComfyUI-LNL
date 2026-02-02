@@ -53,6 +53,41 @@
     font-size: 120%;
 }
 
+.lnl-loader-text {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #e6e8ec;
+}
+
+.lnl-processing-overlay {
+    position: absolute;
+    display: block;
+    top: 0px;
+    bottom: 4px;
+    left: 0px;
+    z-index: 1000;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.55);
+    visibility: hidden;
+}
+
+.lnl-loader-bar {
+    margin: 10px auto 0;
+    width: 140px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.lnl-loader-bar-fill {
+    width: 30%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(110, 200, 130, 0.7), rgba(120, 170, 255, 0.9));
+    border-radius: inherit;
+    transition: width 120ms ease;
+}
+
 .lnl-timeline {
     width: 100%;
     height: 100%;

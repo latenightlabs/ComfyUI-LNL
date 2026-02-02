@@ -258,10 +258,12 @@ function createPauseControlsWidget(hostNode) {
 
     continueBtn.addEventListener("click", async () => {
         pauseWidget.setVisible(false);
+        hostNode._lnlPauseActive = false;
         await sendPauseResponse(hostNode, { special: null });
     });
     cancelBtn.addEventListener("click", async () => {
         pauseWidget.setVisible(false);
+        hostNode._lnlPauseActive = false;
         await sendPauseResponse(hostNode, { special: "-3" });
     });
 
@@ -697,6 +699,7 @@ function createVideoPreviewWidget(hostNode) {
                     inPoint,
                     outPoint,
                 }, { source: "init", updateVideo: true });
+                setWidgetValue(hostNode, hostNode.selectEveryNthFrameWidget, 1);
 
                 let lastTime = 0;
                 const syncCurrentFrame = () => {
@@ -947,8 +950,51 @@ function createLoaderOverlay(previewWidget) {
 
     previewWidget.spinnerEl = document.createElement("div");
     previewWidget.spinnerEl.className = "video-loading-spinner";
-    previewWidget.spinnerEl.innerHTML = createLNLSpinner().outerHTML + "<br />Processing...";
+    previewWidget.spinnerEl.appendChild(createLNLSpinner());
+    previewWidget.loaderTextEl = document.createElement("div");
+    previewWidget.loaderTextEl.className = "lnl-loader-text";
+    previewWidget.loaderTextEl.textContent = "Processing...";
+    previewWidget.spinnerEl.appendChild(previewWidget.loaderTextEl);
     previewWidget.loaderEl.appendChild(previewWidget.spinnerEl);
+
+    previewWidget.processingEl = document.createElement("div");
+    previewWidget.processingEl.className = "lnl-processing-overlay";
+    previewWidget.processingEl.style.visibility = "hidden";
+    previewWidget.processingSpinnerEl = document.createElement("div");
+    previewWidget.processingSpinnerEl.className = "video-loading-spinner";
+    previewWidget.processingSpinnerEl.appendChild(createLNLSpinner());
+    previewWidget.processingTextEl = document.createElement("div");
+    previewWidget.processingTextEl.className = "lnl-loader-text";
+    previewWidget.processingTextEl.textContent = "Processing...";
+    previewWidget.processingSpinnerEl.appendChild(previewWidget.processingTextEl);
+    previewWidget.processingBarEl = document.createElement("div");
+    previewWidget.processingBarEl.className = "lnl-loader-bar";
+    previewWidget.processingBarFillEl = document.createElement("div");
+    previewWidget.processingBarFillEl.className = "lnl-loader-bar-fill";
+    previewWidget.processingBarEl.appendChild(previewWidget.processingBarFillEl);
+    previewWidget.processingSpinnerEl.appendChild(previewWidget.processingBarEl);
+    previewWidget.processingEl.appendChild(previewWidget.processingSpinnerEl);
+    previewWidget.parentEl.appendChild(previewWidget.processingEl);
+
+    previewWidget.setProcessing = (visible, message, progress) => {
+        if (!previewWidget.processingEl) {
+            return;
+        }
+        if (typeof message === "string" && previewWidget.processingTextEl) {
+            previewWidget.processingTextEl.textContent = message;
+        }
+        if (previewWidget.processingBarEl && previewWidget.processingBarFillEl) {
+            if (progress && typeof progress.percent === "number" && Number.isFinite(progress.percent)) {
+                const pct = clamp(progress.percent, 0, 100);
+                previewWidget.processingBarEl.style.opacity = "1";
+                previewWidget.processingBarFillEl.style.width = `${pct}%`;
+            } else {
+                previewWidget.processingBarEl.style.opacity = "0.4";
+                previewWidget.processingBarFillEl.style.width = "30%";
+            }
+        }
+        previewWidget.processingEl.style.visibility = visible ? "visible" : "hidden";
+    };
 }
 
 // Utility
@@ -1195,13 +1241,17 @@ function registerPauseListener() {
             return;
         }
         if (payload.timeout) {
+            node.previewWidget?.setProcessing?.(false);
             node.pauseControlsWidget.setVisible(false);
+            node._lnlPauseActive = false;
             return;
         }
         if (typeof payload.tick === "number") {
             node.pauseControlsWidget.setCountdown(payload.tick);
             return;
         }
+        node.previewWidget?.setProcessing?.(false);
+        node._lnlPauseActive = true;
         if (payload.preview_sequence && node.previewWidget?.useImageSequence) {
             node.previewWidget.useImageSequence(payload.preview_sequence, {
                 currentFrame: payload.current_frame,
@@ -1223,6 +1273,29 @@ function registerPauseListener() {
         node._lnlPausePayload = payload;
         node.pauseControlsWidget.resetMessage();
         node.pauseControlsWidget.setVisible(true);
+    });
+    api.addEventListener("lnl-frame-selector-progress", (event) => {
+        const payload = event?.detail || event;
+        if (!payload) {
+            return;
+        }
+        if (payload.graph_id !== undefined && payload.graph_id !== null && payload.graph_id !== "") {
+            if (String(payload.graph_id) !== String(app.graph?.id)) {
+                return;
+            }
+        }
+        const node = app.graph?._nodes_by_id?.[payload.uid];
+        if (!node?.previewWidget?.setProcessing) {
+            return;
+        }
+        const message = typeof payload.message === "string" && payload.message.length
+            ? payload.message
+            : "Processing...";
+        let progress = null;
+        if (typeof payload.current === "number" && typeof payload.total === "number" && payload.total > 0) {
+            progress = { percent: (payload.current / payload.total) * 100 };
+        }
+        node.previewWidget.setProcessing(true, message, progress);
     });
 }
 
@@ -1516,9 +1589,47 @@ function updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget
     applyWidgetVisibility(customHeightWidget);
 }
 
+function normalizePauseTimeoutWidget(node) {
+    const pauseWidget = node?.widgets?.find((w) => w.name === "pause_timeout");
+    if (!pauseWidget) {
+        return;
+    }
+    const rawValue = pauseWidget.value;
+    const numericValue = Number(rawValue);
+    if (Number.isFinite(numericValue) && numericValue > 0) {
+        return;
+    }
+    const graphIdWidget = node.widgets?.find((w) => w.name === "graph_id");
+    if (graphIdWidget && (!graphIdWidget.value || `${graphIdWidget.value}`.length === 0) && typeof rawValue === "string") {
+        setWidgetValue(node, graphIdWidget, rawValue);
+    }
+    const fallback = pauseWidget.options?.default ?? 1000;
+    setWidgetValue(node, pauseWidget, fallback);
+}
+
 function isInputConnected(node, name) {
-    const input = node?.inputs?.find((entry) => entry?.name === name);
-    return input?.link !== null && input?.link !== undefined;
+    const inputs = node?.inputs || [];
+    const inputIndex = inputs.findIndex((entry) => entry?.name === name);
+    if (inputIndex === -1) {
+        return false;
+    }
+    const input = inputs[inputIndex];
+    if (input.link !== null && input.link !== undefined) {
+        return true;
+    }
+    if (Array.isArray(input.links) && input.links.length) {
+        return true;
+    }
+    const links = node?.graph?.links ?? app?.graph?.links;
+    if (links) {
+        for (const key of Object.keys(links)) {
+            const link = links[key];
+            if (link?.target_id === node.id && link?.target_slot === inputIndex) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 function updateVideoInputAvailability(node) {
@@ -1529,10 +1640,18 @@ function updateVideoInputAvailability(node) {
     const previousState = node._lnlUsingImageInput;
     node._lnlUsingImageInput = hasImageInput;
     if (node.pathWidget) {
+        if (!node.pathWidget._lnlHideReady) {
+            hideWidgetVisually(node.pathWidget);
+            node.pathWidget._lnlHideReady = true;
+        }
         setWidgetHidden(node.pathWidget, hasImageInput);
         setWidgetDisabled(node.pathWidget, hasImageInput);
     }
     if (node.uploadWidget) {
+        if (!node.uploadWidget._lnlHideReady) {
+            hideWidgetVisually(node.uploadWidget);
+            node.uploadWidget._lnlHideReady = true;
+        }
         setWidgetHidden(node.uploadWidget, hasImageInput);
         setWidgetDisabled(node.uploadWidget, hasImageInput);
     }
@@ -1541,6 +1660,40 @@ function updateVideoInputAvailability(node) {
         if (previousState && node.pathWidget?.callback) {
             node.pathWidget.callback(node.pathWidget.value, true);
         }
+    }
+    lnl_fitHeight(node);
+    requestNodeRedraw(node);
+}
+
+function scheduleInputAvailabilitySync(node) {
+    if (!node) {
+        return;
+    }
+    if (node._lnlInputSyncTimer) {
+        clearTimeout(node._lnlInputSyncTimer);
+        node._lnlInputSyncTimer = null;
+    }
+    let attempts = 0;
+    const tick = () => {
+        attempts += 1;
+        updateVideoInputAvailability(node);
+        if (attempts < 20) {
+            node._lnlInputSyncTimer = setTimeout(tick, 100);
+        } else {
+            node._lnlInputSyncTimer = null;
+        }
+    };
+    tick();
+}
+
+function syncImageConnectionState(node) {
+    if (!node) {
+        return;
+    }
+    const connected = isInputConnected(node, "images");
+    if (node._lnlLastImagesConnected !== connected) {
+        node._lnlLastImagesConnected = connected;
+        updateVideoInputAvailability(node);
     }
 }
 
@@ -1591,7 +1744,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         // Add upload widget
         const uploadWidget = createUploadWidget(this, pathWidget);
         this.uploadWidget = uploadWidget;
-        updateVideoInputAvailability(this);
+        scheduleInputAvailabilitySync(this);
 
         /*
         Attribution: ComfyUI-VideoHelperSuite
@@ -1637,6 +1790,7 @@ export async function createFrameSelectorWidgets(nodeType) {
             updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
             lnl_fitHeight(that);
         }
+        normalizePauseTimeoutWidget(this);
 
         // Add double slider widget (keep it hidden but serialized)
         document.body.appendChild(doubleSliderWidget.inputEl);
@@ -1746,6 +1900,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         // Make sure to reload video after refreshing
         setTimeout(() => {
             pathWidget.callback(pathWidget.value, true);
+            scheduleInputAvailabilitySync(this);
             this.graph?.setDirtyCanvas(true, true);
         }, 10);
 
@@ -1766,9 +1921,24 @@ export async function createFrameSelectorWidgets(nodeType) {
     const originalOnConnectionsChange = nodeType.prototype.onConnectionsChange;
     nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info, input) {
         originalOnConnectionsChange?.apply(this, arguments);
-        if (input?.name === "images") {
-            updateVideoInputAvailability(this);
+        const inputName = input?.name ?? this.inputs?.[index]?.name;
+        updateVideoInputAvailability(this);
+        if (inputName === "images" && connected) {
+            scheduleInputAvailabilitySync(this);
         }
+        if (inputName === "images" && !connected && this._lnlPauseActive) {
+            this._lnlPauseActive = false;
+            this.pauseControlsWidget?.setVisible(false);
+            this.previewWidget?.setProcessing?.(false);
+            sendPauseResponse(this, { special: "-3" });
+        }
+    };
+
+    const originalOnDrawForeground = nodeType.prototype.onDrawForeground;
+    nodeType.prototype.onDrawForeground = function () {
+        const result = originalOnDrawForeground?.apply(this, arguments);
+        syncImageConnectionState(this);
+        return result;
     };
 
     // Loading serialized data
@@ -1796,7 +1966,8 @@ export async function createFrameSelectorWidgets(nodeType) {
             updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
             lnl_fitHeight(this);
         }
-        updateVideoInputAvailability(this);
+        normalizePauseTimeoutWidget(this);
+        scheduleInputAvailabilitySync(this);
     };
 }
 

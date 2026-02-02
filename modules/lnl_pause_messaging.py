@@ -144,3 +144,10 @@ def send_and_wait(payload, timeout, uid, graph_id) -> Response:
             raise InterruptProcessingException()
         if not isinstance(r, RequestResponse):
             return r
+
+
+def send_progress(uid, graph_id, message: str, current: int | None = None, total: int | None = None):
+    PromptServer.instance.send_sync(
+        "lnl-frame-selector-progress",
+        {"uid": uid, "graph_id": graph_id, "message": message, "current": current, "total": total},
+    )
