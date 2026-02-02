@@ -125,3 +125,48 @@
 .lnl-timeline-marker-out {
     background: #c12926;
 }
+
+.lnl-pause-controls {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 8px;
+    background: rgba(20, 20, 22, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.lnl-pause-message {
+    color: #e6e8ec;
+    font-size: 12px;
+    flex: 1 1 auto;
+}
+
+.lnl-pause-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.lnl-pause-continue,
+.lnl-pause-cancel {
+    background: #2b2f36;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #f1f3f5;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.lnl-pause-continue:hover {
+    background: #3a6f4a;
+    border-color: rgba(110, 200, 130, 0.6);
+}
+
+.lnl-pause-cancel:hover {
+    background: #7a2d2d;
+    border-color: rgba(220, 90, 90, 0.6);
+}

@@ -20,6 +20,9 @@ function createDoubleSliderWidget(hostNode, widgetName) {
         marker: true,
         width_margin: 10,
         draw(ctx, node, widget_width, y, widget_height) { 
+            if (!this.inputEl || !this.inputEl.style) {
+                return;
+            }
             Object.assign(this.inputEl.style, getLNLPositionStyle(ctx, widget_width, y, node, widget_height));
         },
         onWidgetChanged(widget_name, new_value, old_value, widget) {},
@@ -203,6 +206,66 @@ function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
     }
 
     return playerControlsWidget;
+}
+
+function createPauseControlsWidget(hostNode) {
+    const element = document.createElement("div");
+    element.className = "lnl-pause-controls";
+    element.style.display = "none";
+
+    const messageEl = document.createElement("div");
+    messageEl.className = "lnl-pause-message";
+    messageEl.textContent = "Workflow paused. Adjust trim then continue.";
+    element.appendChild(messageEl);
+
+    const buttonsEl = document.createElement("div");
+    buttonsEl.className = "lnl-pause-buttons";
+    element.appendChild(buttonsEl);
+
+    const continueBtn = document.createElement("button");
+    continueBtn.type = "button";
+    continueBtn.className = "lnl-pause-continue";
+    continueBtn.textContent = "Continue";
+    buttonsEl.appendChild(continueBtn);
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "lnl-pause-cancel";
+    cancelBtn.textContent = "Cancel";
+    buttonsEl.appendChild(cancelBtn);
+
+    const pauseWidget = hostNode.addDOMWidget("pause_controls", "lnl_pause_controls", element, {
+        serialize: false,
+        hideOnZoom: false,
+    });
+    pauseWidget.computeSize = function (width) {
+        return [width, LiteGraph.NODE_WIDGET_HEIGHT * 2];
+    };
+    pauseWidget.messageEl = messageEl;
+    pauseWidget.element = element;
+    pauseWidget.setVisible = function (visible) {
+        element.style.display = visible ? "flex" : "none";
+        lnl_fitHeight(hostNode);
+    };
+    pauseWidget.setCountdown = function (seconds) {
+        if (typeof seconds === "number" && seconds >= 0) {
+            messageEl.textContent = `Workflow paused. Time remaining: ${seconds}s`;
+        }
+    };
+    pauseWidget.resetMessage = function () {
+        messageEl.textContent = "Workflow paused. Adjust trim then continue.";
+    };
+
+    continueBtn.addEventListener("click", async () => {
+        pauseWidget.setVisible(false);
+        await sendPauseResponse(hostNode, { special: null });
+    });
+    cancelBtn.addEventListener("click", async () => {
+        pauseWidget.setVisible(false);
+        await sendPauseResponse(hostNode, { special: "-3" });
+    });
+
+    return pauseWidget;
 }
 
 function createTimelineWidget(hostNode) {
@@ -542,7 +605,13 @@ function createVideoPreviewWidget(hostNode) {
     }
 
     previewWidget.updateParameters = (params) => {
-        Object.assign(previewWidget.value.params, params)
+        if (!previewWidget.value) {
+            previewWidget.value = { hidden: false, paused: false, params: {} };
+        }
+        if (!previewWidget.value.params || typeof previewWidget.value.params !== "object") {
+            previewWidget.value.params = {};
+        }
+        Object.assign(previewWidget.value.params, params || {});
         previewWidget.updateSource();
     };      
     previewWidget.parentEl.appendChild(previewWidget.videoEl);
@@ -883,6 +952,59 @@ function pauseVideoIfPlaying(previewWidget, playerControlsWidget) {
     previewWidget.videoEl.pause();
 }
 
+let pauseListenerRegistered = false;
+function registerPauseListener() {
+    if (pauseListenerRegistered) {
+        return;
+    }
+    pauseListenerRegistered = true;
+    api.addEventListener("lnl-frame-selector-pause", async (event) => {
+        const payload = event?.detail || event;
+        if (!payload) {
+            return;
+        }
+        if (payload.graph_id !== undefined && payload.graph_id !== null && payload.graph_id !== "") {
+            if (String(payload.graph_id) !== String(app.graph?.id)) {
+                return;
+            }
+        }
+        const node = app.graph?._nodes_by_id?.[payload.uid];
+        if (!node || !node.pauseControlsWidget) {
+            return;
+        }
+        if (payload.timeout) {
+            node.pauseControlsWidget.setVisible(false);
+            return;
+        }
+        if (typeof payload.tick === "number") {
+            node.pauseControlsWidget.setCountdown(payload.tick);
+            return;
+        }
+        node._lnlPausePayload = payload;
+        node.pauseControlsWidget.resetMessage();
+        node.pauseControlsWidget.setVisible(true);
+    });
+}
+
+async function sendPauseResponse(node, { special } = {}) {
+    const graphIdWidget = node.widgets?.find((w) => w.name === "graph_id");
+    const graphId = graphIdWidget?.value ?? app.graph?.id ?? "";
+    const payload = {
+        graph_id: graphId,
+        special: special ?? null,
+        current_frame: node.currentFrameWidget?.value,
+        in_point: node.inPointWidget?.value,
+        out_point: node.outPointWidget?.value,
+        select_every_nth_frame: node.selectEveryNthFrameWidget?.value,
+    };
+    const form = new FormData();
+    form.append("response", JSON.stringify(payload));
+    await api.fetchApi("/lnl-frame-selector-message", {
+        method: "POST",
+        body: form,
+    });
+}
+
 
 /*
 Attribution: ComfyUI-VideoHelperSuite
@@ -1093,6 +1215,7 @@ export async function createFrameSelectorWidgets(nodeType) {
     const originalNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
         originalNodeCreated?.apply(this, arguments);
+        registerPauseListener();
 
         const that = this;
 
@@ -1145,9 +1268,20 @@ export async function createFrameSelectorWidgets(nodeType) {
         const timelineWidget = createTimelineWidget(this);
         this.timelineWidget = timelineWidget;
 
+        // Pause controls widget
+        const pauseControlsWidget = createPauseControlsWidget(this);
+        this.pauseControlsWidget = pauseControlsWidget;
+
         const sizeWidget = this.widgets.find((w) => w.name === 'force_size');
         const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');
         const customHeightWidget = this.widgets.find((w) => w.name === 'custom_height');
+        const graphIdWidget = this.widgets.find((w) => w.name === 'graph_id');
+        if (graphIdWidget) {
+            hideWidgetVisually(graphIdWidget);
+            graphIdWidget.hidden = true;
+            setWidgetValue(this, graphIdWidget, `${app.graph?.id ?? ""}`);
+            applyWidgetVisibility(graphIdWidget);
+        }
         if (sizeWidget !== undefined) {
             hideWidgetVisually(customWidthWidget);
             hideWidgetVisually(customHeightWidget);
@@ -1298,6 +1432,13 @@ export async function createFrameSelectorWidgets(nodeType) {
         const sizeWidget = this.widgets.find((w) => w.name === 'force_size');
         const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');
         const customHeightWidget = this.widgets.find((w) => w.name === 'custom_height');
+        const graphIdWidget = this.widgets.find((w) => w.name === 'graph_id');
+        if (graphIdWidget) {
+            hideWidgetVisually(graphIdWidget);
+            graphIdWidget.hidden = true;
+            setWidgetValue(this, graphIdWidget, `${app.graph?.id ?? ""}`);
+            applyWidgetVisibility(graphIdWidget);
+        }
         if (sizeWidget !== undefined) {
             if (customWidthWidget && (customWidthWidget.value === null || customWidthWidget.value === undefined)) {
                 setWidgetValue(this, customWidthWidget, customWidthWidget.options?.default ?? 512);

@@ -3,6 +3,7 @@ import os
 import torch
 import numpy as np
 from .video_utils import *
+from .lnl_pause_messaging import send_and_wait, TimeoutResponse
 from .utils import lnl_fix_path
 
 import folder_paths
@@ -68,6 +69,11 @@ class FrameSelectorV3():
                 "force_size": (["Disabled", "Custom Height", "Custom Width", "Custom", "256x?", "?x256", "256x256", "512x?", "?x512", "512x512"],),
                 "custom_width": ("INT", {"default": 512, "min": 0, "max": 8192, "step": 8}),
                 "custom_height": ("INT", {"default": 512, "min": 0, "max": 8192, "step": 8}),
+                "pause_on_execute": ("BOOLEAN", {"default": False}),
+                "pause_timeout": ("INT", {"default": 1000, "min": 1, "max": 9999999}),
+            },
+            "optional": {
+                "graph_id": ("STRING", {"default": ""}),
             },
             "hidden": {
                 "prompt": "PROMPT",
@@ -87,6 +93,9 @@ class FrameSelectorV3():
         force_size,
         custom_width,
         custom_height,
+        pause_on_execute=False,
+        pause_timeout=600,
+        graph_id=None,
         prompt=None,
         unique_id=None
     ):
@@ -94,7 +103,13 @@ class FrameSelectorV3():
             custom_width = 512
         if custom_height is None:
             custom_height = 512
-        prompt_inputs = prompt[unique_id]["inputs"]
+        prompt_inputs = {}
+        if isinstance(prompt, dict):
+            node_data = prompt.get(str(unique_id)) or prompt.get(unique_id) or {}
+            if isinstance(node_data, dict):
+                prompt_inputs = node_data.get("inputs") or {}
+        if not isinstance(prompt_inputs, dict):
+            prompt_inputs = {}
         full_video_path = lnl_fix_path(video_path)
 
         slider_data = prompt_inputs.get("in_out_point_slider") or {}
@@ -111,6 +126,21 @@ class FrameSelectorV3():
         in_point = _safe_int(prompt_inputs.get("in_point"), _safe_int(slider_data.get("startMarkerFrame"), 1))
         out_point = _safe_int(prompt_inputs.get("out_point"), _safe_int(slider_data.get("endMarkerFrame"), total_frames))
         current_frame = _safe_int(prompt_inputs.get("current_frame"), _safe_int(slider_data.get("currentFrame"), in_point))
+
+        if pause_on_execute:
+            graph_id_value = graph_id if graph_id is not None else prompt_inputs.get("graph_id", "")
+            payload = {
+                "current_frame": current_frame,
+                "in_point": in_point,
+                "out_point": out_point,
+                "total_frames": total_frames,
+                "frame_rate": frame_rate,
+            }
+            response = send_and_wait(payload, pause_timeout, unique_id, graph_id_value)
+            if not isinstance(response, TimeoutResponse):
+                in_point = _safe_int(response.in_point, in_point)
+                out_point = _safe_int(response.out_point, out_point)
+                current_frame = _safe_int(response.current_frame, current_frame)
 
         in_point = max(1, min(in_point, total_frames))
         out_point = max(in_point, min(out_point, total_frames))
@@ -158,16 +188,35 @@ class FrameSelectorV4(FrameSelectorV3):
         force_size,
         custom_width,
         custom_height,
+        pause_on_execute=False,
+        pause_timeout=600,
+        graph_id=None,
         prompt=None,
         unique_id=None
     ):
         full_video_path = lnl_fix_path(video_path)
 
-        result = super().process_video(video_path, force_size, custom_width, custom_height, prompt, unique_id)
+        result = super().process_video(
+            video_path,
+            force_size,
+            custom_width,
+            custom_height,
+            pause_on_execute,
+            pause_timeout,
+            graph_id,
+            prompt,
+            unique_id,
+        )
         in_point = result[2]
         frames_to_process = result[5]
 
-        prompt_inputs = prompt[unique_id]["inputs"]
+        prompt_inputs = {}
+        if isinstance(prompt, dict):
+            node_data = prompt.get(str(unique_id)) or prompt.get(unique_id) or {}
+            if isinstance(node_data, dict):
+                prompt_inputs = node_data.get("inputs") or {}
+        if not isinstance(prompt_inputs, dict):
+            prompt_inputs = {}
         select_every_nth_frame = _safe_int(prompt_inputs.get("select_every_nth_frame"), 1)
         if select_every_nth_frame <= 0:
             select_every_nth_frame = 1
