@@ -309,6 +309,7 @@ class FrameSelectorV3():
         out_point = _safe_int(prompt_inputs.get("out_point"), _safe_int(slider_data.get("endMarkerFrame"), total_frames))
         current_frame = _safe_int(prompt_inputs.get("current_frame"), _safe_int(slider_data.get("currentFrame"), in_point))
 
+        pause_completed = False
         if pause_on_execute:
             payload = {
                 "current_frame": current_frame,
@@ -336,6 +337,7 @@ class FrameSelectorV3():
                     payload["preview_mode"] = "image_sequence"
             response = send_and_wait(payload, pause_timeout, unique_id, graph_id_value)
             if not isinstance(response, TimeoutResponse):
+                pause_completed = True
                 in_point = _safe_int(response.in_point, in_point)
                 out_point = _safe_int(response.out_point, out_point)
                 current_frame = _safe_int(response.current_frame, current_frame)
@@ -352,7 +354,7 @@ class FrameSelectorV3():
         starting_frame = in_point
 
         if using_image_batch:
-            if pause_on_execute:
+            if pause_on_execute and not pause_completed:
                 send_progress(unique_id, graph_id_value, "Preparing frames...")
             resized_images = _resize_image_batch(images, force_size, custom_width, custom_height)
             current_index = max(0, current_frame - 1)
@@ -364,23 +366,24 @@ class FrameSelectorV3():
             audio_value = audio if audio is not None else _empty_audio_bytes()
             filename_value = ""
         else:
-            if pause_on_execute:
+            if pause_on_execute and not pause_completed:
                 send_progress(unique_id, graph_id_value, "Extracting frames...")
             (current_image, _) = getImageBatch(full_video_path, 1, 1, current_frame - 1, force_size, custom_width, custom_height)
             (in_out_images, target_frame_time) = getImageBatch(full_video_path, frames_to_process, select_every_nth_frame, starting_frame - 1, force_size, custom_width, custom_height)
             self.target_frame_time = target_frame_time
 
             if audio is not None:
-                if pause_on_execute:
+                if pause_on_execute and not pause_completed:
                     send_progress(unique_id, graph_id_value, "Aligning audio...")
                 audio_value = audio
             else:
-                if pause_on_execute:
+                if pause_on_execute and not pause_completed:
                     send_progress(unique_id, graph_id_value, "Extracting audio...")
                 audio_value = lnl_lazy_eval(lambda: lnl_get_audio(full_video_path, starting_frame * target_frame_time,
                                        frames_to_process*target_frame_time*select_every_nth_frame))
             filename_value = video_path
 
+        self._lnl_pause_completed = pause_completed
         return (
             current_image,
             in_out_images,
@@ -446,13 +449,14 @@ class FrameSelectorV4(FrameSelectorV3):
         if select_every_nth_frame <= 0:
             select_every_nth_frame = 1
         graph_id_value = graph_id if graph_id is not None else prompt_inputs.get("graph_id", "")
+        pause_completed = bool(getattr(self, "_lnl_pause_completed", False))
 
         using_image_batch = _normalize_images(images) is not None
         trim_start = in_point * self.target_frame_time
         trim_duration = frames_to_process * self.target_frame_time * select_every_nth_frame
         total_duration = total_frames * self.target_frame_time
         if audio is not None:
-            if pause_on_execute:
+            if pause_on_execute and not pause_completed:
                 send_progress(unique_id, graph_id_value, "Aligning audio...")
             audio_value = _align_audio_to_video(audio, total_duration, trim_start, trim_duration)
         elif using_image_batch:
