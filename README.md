@@ -1,4 +1,4 @@
-# LNL Frame Selector V2 for ComfyUI
+# LNL Frame Selector V3 for ComfyUI
 The Late Night Labs (LNL) Frame Selector node enhances video interaction inside ComfyUI. It lets you upload, preview, scrub, and set In/Out points directly in the node UI, then outputs frames (and audio) for downstream processing.
 
 ## Features

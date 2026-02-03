@@ -480,6 +480,6 @@ NODE_CLASS_MAPPINGS = {
     "LNL_FrameSelectorV3": FrameSelectorV3
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "LNL_FrameSelectorV4": "LNL Frame Selector V2",
+    "LNL_FrameSelectorV4": "LNL Frame Selector V3",
     "LNL_FrameSelectorV3": "LNL Frame Selector [Deprecated] ⛔️"
 }
