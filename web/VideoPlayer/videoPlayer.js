@@ -1281,6 +1281,20 @@ function setWaitingForOtherPause(activeNode, enabled) {
         }
     }
 }
+
+function getNodeByUid(uid) {
+    const graph = app?.graph;
+    if (!graph) {
+        return null;
+    }
+    const direct = graph._nodes_by_id?.[uid];
+    if (direct) {
+        return direct;
+    }
+    const nodes = graph._nodes ?? [];
+    const target = String(uid);
+    return nodes.find((node) => String(node?.id) === target) ?? null;
+}
 function registerPauseListener() {
     if (pauseListenerRegistered) {
         return;
@@ -1291,7 +1305,7 @@ function registerPauseListener() {
         if (!payload) {
             return;
         }
-        const node = app.graph?._nodes_by_id?.[payload.uid];
+        const node = getNodeByUid(payload.uid);
         if (!node || !node.pauseControlsWidget) {
             return;
         }
@@ -1357,7 +1371,7 @@ function registerPauseListener() {
         if (!payload) {
             return;
         }
-        const node = app.graph?._nodes_by_id?.[payload.uid];
+        const node = getNodeByUid(payload.uid);
         if (!node?.previewWidget?.setProcessing) {
             return;
         }
