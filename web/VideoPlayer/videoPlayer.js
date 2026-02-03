@@ -600,6 +600,7 @@ function createVideoPreviewWidget(hostNode) {
     }
     previewWidget.aspectRatio = infiniteAR;
     previewWidget.value = { hidden: false, paused: false, params: {} }
+    previewWidget._hostNode = hostNode;
     previewWidget.parentEl = document.createElement("div");
     previewWidget.parentEl.style['position'] = "relative";
     previewWidget.parentEl.style['width'] = "100%";
@@ -999,7 +1000,9 @@ function createLoaderOverlay(previewWidget) {
         if (!previewWidget.processingEl) {
             return;
         }
-        hostNode._lnlProcessingActive = !!visible;
+        if (previewWidget._hostNode) {
+            previewWidget._hostNode._lnlProcessingActive = !!visible;
+        }
         if (typeof message === "string" && previewWidget.processingTextEl) {
             previewWidget.processingTextEl.textContent = message;
         }
