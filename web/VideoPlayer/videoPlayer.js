@@ -616,6 +616,22 @@ function createVideoPreviewWidget(hostNode) {
     previewWidget.imageEl.style.pointerEvents = "none";
     previewWidget.parentEl.appendChild(previewWidget.imageEl);
     previewWidget.parentEl.appendChild(previewWidget._videoEl);
+    previewWidget._lnlSequenceAspectReady = false;
+    previewWidget.imageEl.addEventListener("load", () => {
+        if (previewWidget.mode !== "image_sequence") {
+            return;
+        }
+        if (previewWidget._lnlSequenceAspectReady) {
+            return;
+        }
+        const width = previewWidget.imageEl.naturalWidth;
+        const height = previewWidget.imageEl.naturalHeight;
+        if (width > 0 && height > 0) {
+            previewWidget.aspectRatio = width / height;
+            previewWidget._lnlSequenceAspectReady = true;
+            lnl_fitHeight(hostNode);
+        }
+    });
 
     previewWidget.sequencePlayer = createImageSequencePlayer(previewWidget, hostNode);
     previewWidget.sequence = null;
@@ -633,6 +649,7 @@ function createVideoPreviewWidget(hostNode) {
         }
         previewWidget.sequence = sequence;
         previewWidget.mode = "image_sequence";
+        previewWidget._lnlSequenceAspectReady = false;
         previewWidget.imageEl.style.display = "";
         previewWidget._videoEl.style.display = "none";
         previewWidget.videoEl = previewWidget.sequencePlayer;
