@@ -54,6 +54,38 @@ def _get_images_length(images):
         except Exception:
             return 0
 
+def _get_images_cache_key(images, force_size, custom_width, custom_height):
+    if images is None:
+        return None
+    try:
+        shape = tuple(images.shape)
+        dtype = str(images.dtype)
+        device = str(images.device) if hasattr(images, "device") else "cpu"
+        data_ptr = None
+        try:
+            data_ptr = images.untyped_storage().data_ptr()
+        except Exception:
+            try:
+                data_ptr = images.storage().data_ptr()
+            except Exception:
+                data_ptr = None
+        return ("tensor", data_ptr, shape, dtype, device, force_size, custom_width, custom_height)
+    except Exception:
+        return ("object", id(images), force_size, custom_width, custom_height)
+
+def _sequence_frame_path(sequence, index):
+    if not sequence:
+        return None
+    prefix = sequence.get("prefix")
+    subfolder = sequence.get("subfolder", "")
+    ext = sequence.get("ext", "png")
+    pad = int(sequence.get("pad", 5))
+    if not prefix:
+        return None
+    filename = f"{prefix}_{str(index).zfill(pad)}.{ext}"
+    target_dir = os.path.join(folder_paths.get_temp_directory(), subfolder)
+    return os.path.join(target_dir, filename)
+
 def _resize_image_batch(images, force_size, custom_width, custom_height):
     if images is None:
         return None
@@ -280,6 +312,7 @@ class FrameSelectorV3():
             prompt_inputs = {}
         images = _normalize_images(images)
         using_image_batch = images is not None
+        images_cache_key = _get_images_cache_key(images, force_size, custom_width, custom_height) if using_image_batch else None
 
         slider_data = prompt_inputs.get("in_out_point_slider") or {}
         total_frames = _safe_int(slider_data.get("totalFrames"), 0)
@@ -315,18 +348,28 @@ class FrameSelectorV3():
                 "frame_rate": frame_rate,
             }
             if using_image_batch:
-                send_progress(unique_id, graph_id_value, "Preparing image preview...", 0, total_frames)
-                preview_sequence = _save_image_sequence(
-                    images,
-                    unique_id,
-                    progress_callback=lambda current, total: send_progress(
+                preview_cache_key = (images_cache_key, frame_rate, total_frames)
+                preview_sequence = None
+                cached_preview = getattr(self, "_lnl_cached_preview", None)
+                if cached_preview and cached_preview.get("key") == preview_cache_key:
+                    candidate = cached_preview.get("sequence")
+                    if candidate and _sequence_frame_path(candidate, 1) and os.path.exists(_sequence_frame_path(candidate, 1)):
+                        preview_sequence = candidate
+                if preview_sequence is None:
+                    send_progress(unique_id, graph_id_value, "Preparing image preview...", 0, total_frames)
+                    preview_sequence = _save_image_sequence(
+                        images,
                         unique_id,
-                        graph_id_value,
-                        f"Preparing image preview... ({current}/{total})",
-                        current,
-                        total,
-                    ),
-                )
+                        progress_callback=lambda current, total: send_progress(
+                            unique_id,
+                            graph_id_value,
+                            f"Preparing image preview... ({current}/{total})",
+                            current,
+                            total,
+                        ),
+                    )
+                    if preview_sequence:
+                        self._lnl_cached_preview = {"key": preview_cache_key, "sequence": preview_sequence}
                 if preview_sequence:
                     preview_sequence["frame_rate"] = frame_rate
                     payload["preview_sequence"] = preview_sequence
@@ -350,9 +393,42 @@ class FrameSelectorV3():
         starting_frame = in_point
 
         if using_image_batch:
+            output_cache_key = (
+                images_cache_key,
+                current_frame,
+                in_point,
+                out_point,
+                select_every_nth_frame,
+            )
+            cached_output = getattr(self, "_lnl_cached_output", None)
+            if cached_output and cached_output.get("key") == output_cache_key:
+                current_image = cached_output.get("current_image")
+                in_out_images = cached_output.get("in_out_images")
+                if current_image is not None and in_out_images is not None:
+                    self.target_frame_time = 1.0 / frame_rate if frame_rate else 0.0
+                    audio_value = audio if audio is not None else _empty_audio_bytes()
+                    filename_value = ""
+                    return (
+                        current_image,
+                        in_out_images,
+                        in_point,
+                        out_point,
+                        filename_value,
+                        frames_to_process,
+                        total_frames,
+                        current_frame - in_point + 1,
+                        current_frame,
+                        frame_rate,
+                        audio_value,
+                    )
             if pause_on_execute and not pause_completed:
                 send_progress(unique_id, graph_id_value, "Preparing frames...")
-            resized_images = _resize_image_batch(images, force_size, custom_width, custom_height)
+            cached_images = getattr(self, "_lnl_cached_images", None)
+            if cached_images and cached_images.get("key") == images_cache_key:
+                resized_images = cached_images.get("images")
+            else:
+                resized_images = _resize_image_batch(images, force_size, custom_width, custom_height)
+                self._lnl_cached_images = {"key": images_cache_key, "images": resized_images}
             current_index = max(0, current_frame - 1)
             current_image = resized_images[current_index:current_index + 1]
             in_index = max(0, in_point - 1)
@@ -361,6 +437,11 @@ class FrameSelectorV3():
             self.target_frame_time = 1.0 / frame_rate if frame_rate else 0.0
             audio_value = audio if audio is not None else _empty_audio_bytes()
             filename_value = ""
+            self._lnl_cached_output = {
+                "key": output_cache_key,
+                "current_image": current_image,
+                "in_out_images": in_out_images,
+            }
         else:
             if pause_on_execute and not pause_completed:
                 send_progress(unique_id, graph_id_value, "Extracting frames...")
