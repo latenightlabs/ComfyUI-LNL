@@ -297,12 +297,9 @@ class FrameSelectorV3():
                 frame_rate = 30.0
         else:
             full_video_path = lnl_fix_path(video_path)
-            if total_frames <= 0 or frame_rate <= 0.0:
-                info_frame_rate, info_total_frames, _ = get_video_info(full_video_path)
-                if total_frames <= 0:
-                    total_frames = _safe_int(info_total_frames, 1)
-                if frame_rate <= 0.0:
-                    frame_rate = _safe_float(info_frame_rate, 1.0)
+            info_frame_rate, info_total_frames, _ = get_video_info(full_video_path)
+            total_frames = _safe_int(info_total_frames, 1)
+            frame_rate = _safe_float(info_frame_rate, 1.0)
 
         in_point = _safe_int(prompt_inputs.get("in_point"), _safe_int(slider_data.get("startMarkerFrame"), 1))
         out_point = _safe_int(prompt_inputs.get("out_point"), _safe_int(slider_data.get("endMarkerFrame"), total_frames))
