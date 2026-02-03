@@ -1262,15 +1262,28 @@ function registerPauseListener() {
         }
         if (payload?.total_frames) {
             const totalFrames = Math.max(1, payload.total_frames);
+            const isNewMedia = node._lnlLastTotalFrames !== totalFrames;
+            node._lnlLastTotalFrames = totalFrames;
+            const payloadCurrent = Number(payload.current_frame);
+            const payloadIn = Number(payload.in_point);
+            const payloadOut = Number(payload.out_point);
+            const shouldReset = isNewMedia
+                || !Number.isFinite(payloadCurrent)
+                || !Number.isFinite(payloadIn)
+                || !Number.isFinite(payloadOut);
+            const resolvedCurrent = shouldReset ? 1 : clamp(payloadCurrent, 1, totalFrames);
+            const resolvedIn = shouldReset ? 1 : clamp(payloadIn, 1, totalFrames);
+            const resolvedOut = shouldReset ? totalFrames : clamp(payloadOut, 1, totalFrames);
             applyFrameState(node, {
                 totalFrames,
-                currentFrame: payload.current_frame ?? node.currentFrameWidget?.value ?? 1,
-                inPoint: payload.in_point ?? node.inPointWidget?.value ?? 1,
-                outPoint: payload.out_point ?? node.outPointWidget?.value ?? totalFrames,
+                currentFrame: resolvedCurrent,
+                inPoint: resolvedIn,
+                outPoint: resolvedOut,
             }, { source: "init", updateVideo: true, force: true });
-            const selectEvery = Number.isFinite(Number(payload.select_every_nth_frame))
-                ? Number(payload.select_every_nth_frame)
-                : 1;
+            const selectEvery = shouldReset ? 1
+                : Number.isFinite(Number(payload.select_every_nth_frame))
+                    ? Number(payload.select_every_nth_frame)
+                    : 1;
             setWidgetValue(node, node.selectEveryNthFrameWidget, selectEvery);
             requestNodeRedraw(node);
         }
