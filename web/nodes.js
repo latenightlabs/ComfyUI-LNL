@@ -6,6 +6,44 @@ import { registerGroupExtensions, setupConfigAndSerialization } from "./Enhanced
 import { lnlAddStylesheet, lnlGetUrl } from "./utils.js";
 import { isFrameSelectorNode } from "./VideoPlayer/videoPlayer.js";
 
+function isInputConnected(node, name) {
+    const inputs = node?.inputs || [];
+    const inputIndex = inputs.findIndex((entry) => entry?.name === name);
+    if (inputIndex === -1) {
+        return false;
+    }
+    const input = inputs[inputIndex];
+    if (input.link !== null && input.link !== undefined) {
+        return true;
+    }
+    if (Array.isArray(input.links) && input.links.length) {
+        return true;
+    }
+    return false;
+}
+
+function getWidgetValue(node, name, fallback = null) {
+    const widget = node.widgets?.find((w) => w.name === name);
+    return widget ? widget.value : fallback;
+}
+
+function computeFrameSelectorSignature(node) {
+    return JSON.stringify({
+        video_path: getWidgetValue(node, "video_path", ""),
+        force_size: getWidgetValue(node, "force_size", ""),
+        custom_width: getWidgetValue(node, "custom_width", 0),
+        custom_height: getWidgetValue(node, "custom_height", 0),
+        pause_on_execute: !!getWidgetValue(node, "pause_on_execute", false),
+        pause_timeout: getWidgetValue(node, "pause_timeout", 0),
+        current_frame: getWidgetValue(node, "current_frame", 0),
+        in_point: getWidgetValue(node, "in_point", 0),
+        out_point: getWidgetValue(node, "out_point", 0),
+        select_every_nth_frame: getWidgetValue(node, "select_every_nth_frame", 0),
+        images_connected: isInputConnected(node, "images"),
+        audio_connected: isInputConnected(node, "audio"),
+    });
+}
+
 function setQueuedOnOtherFrameSelectors(activeNode) {
     const nodes = activeNode?.graph?._nodes ?? app.graph?._nodes ?? [];
     for (const node of nodes) {
@@ -35,6 +73,13 @@ function setupFrameSelectorNodeHandlers(nodeType) {
     nodeType.prototype.onExecutionStart = function () {
         this.previewWidget.videoEl.pause();
         const pauseWidget = this.widgets?.find((w) => w.name === "pause_on_execute");
+        const signature = computeFrameSelectorSignature(this);
+        if (this._lnlLastSignature === signature) {
+            this._lnlNeedsUpdate = false;
+        } else {
+            this._lnlNeedsUpdate = true;
+            this._lnlLastSignature = signature;
+        }
         setQueuedOnOtherFrameSelectors(this);
         this._lnlQueuedActive = false;
         if (pauseWidget?.value && (this._lnlNeedsUpdate ?? true)) {
