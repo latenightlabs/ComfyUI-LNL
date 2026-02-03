@@ -9,15 +9,6 @@ function setupFrameSelectorNodeHandlers(nodeType) {
     const originalOnExecutionStart = nodeType.prototype.onExecutionStart;
     nodeType.prototype.onExecutionStart = function () {
         this.previewWidget.videoEl.pause();
-        const allNodes = this.graph?._nodes ?? app.graph?._nodes ?? [];
-        for (const other of allNodes) {
-            if (!other || other === this) {
-                continue;
-            }
-            if (other.comfyClass?.includes("LNL Frame Selector") && !other._lnlPauseActive) {
-                other.previewWidget?.setProcessing?.(false);
-            }
-        }
         const pauseWidget = this.widgets?.find((w) => w.name === "pause_on_execute");
         if (pauseWidget?.value) {
             this.previewWidget?.setProcessing?.(true, "Processing media...");

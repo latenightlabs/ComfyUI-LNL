@@ -997,6 +997,7 @@ function createLoaderOverlay(previewWidget) {
         if (!previewWidget.processingEl) {
             return;
         }
+        hostNode._lnlProcessingActive = !!visible;
         if (typeof message === "string" && previewWidget.processingTextEl) {
             previewWidget.processingTextEl.textContent = message;
         }
