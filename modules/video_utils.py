@@ -387,10 +387,19 @@ def get_video_info(video_path):
             nb_read_frames = stream.get("nb_read_frames")
             stream_duration = stream.get("duration")
 
-            if isinstance(nb_frames, str) and nb_frames.isdigit():
-                total_frames = int(nb_frames)
-            elif isinstance(nb_read_frames, str) and nb_read_frames.isdigit():
-                total_frames = int(nb_read_frames)
+            def _parse_int(value):
+                if isinstance(value, (int, float)):
+                    return int(value)
+                if isinstance(value, str) and value.isdigit():
+                    return int(value)
+                return None
+
+            parsed_read = _parse_int(nb_read_frames)
+            parsed_meta = _parse_int(nb_frames)
+            if parsed_read is not None:
+                total_frames = parsed_read
+            elif parsed_meta is not None:
+                total_frames = parsed_meta
 
             try:
                 if duration is None and stream_duration is not None:
