@@ -7,6 +7,7 @@ The Late Night Labs (LNL) Frame Selector node enhances video interaction inside 
 - Outputs for frame ranges, frame counts, current frame (abs/rel), and frame rate.
 - Optional audio output for the selected range.
 - Optional workflow pause to confirm trim before continuing.
+- Progress overlay with step messaging while media is prepared (image sequence/audio alignment).
 
 ## Structure
 The project is structured into two main components: the web directory, containing front-end JavaScript and CSS files, and the modules directory, containing back-end Python scripts.
