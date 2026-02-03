@@ -427,6 +427,22 @@ def get_video_info(video_path):
                 total_frames = int(frame_count)
             if duration is None and fps > 0 and frame_count > 0:
                 duration = frame_count / fps
+
+            if ffprobe_cmd is None:
+                try:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    precise_count = 0
+                    while True:
+                        ok = cap.grab()
+                        if not ok:
+                            break
+                        precise_count += 1
+                    if precise_count > 0:
+                        total_frames = int(precise_count)
+                        if frame_rate and frame_rate > 0:
+                            duration = total_frames / frame_rate
+                except Exception:
+                    pass
         cap.release()
 
     if frame_rate is None or frame_rate <= 0:
