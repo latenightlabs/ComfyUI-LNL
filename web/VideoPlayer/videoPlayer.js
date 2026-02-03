@@ -1269,18 +1269,25 @@ function setWaitingForOtherPause(activeNode, enabled) {
         if (!pauseWidget?.value) {
             continue;
         }
-        if (node._lnlProcessingActive) {
+        if (node._lnlPauseActive) {
             continue;
         }
         if (!node.previewWidget?.setProcessing) {
             continue;
         }
-        node._lnlWaitingForOtherPause = enabled;
         if (enabled) {
+            node._lnlWaitingForOtherPause = true;
+            node._lnlProcessingBeforeWait = !!node._lnlProcessingActive;
             node.previewWidget.setProcessing(true, "Waiting for other pause...");
         } else if (node._lnlWaitingForOtherPause) {
             node._lnlWaitingForOtherPause = false;
-            node.previewWidget.setProcessing(false);
+            const restoreProcessing = node._lnlProcessingBeforeWait;
+            node._lnlProcessingBeforeWait = false;
+            if (restoreProcessing) {
+                node.previewWidget.setProcessing(true, "Processing media...");
+            } else {
+                node.previewWidget.setProcessing(false);
+            }
         }
     }
 }
