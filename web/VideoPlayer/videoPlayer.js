@@ -1430,6 +1430,9 @@ function registerPauseListener() {
                 return;
             }
         }
+        if (node._lnlNeedsUpdate === false && !node._lnlQueuedActive && !node._lnlPauseActive) {
+            return;
+        }
         const message = typeof payload.message === "string" && payload.message.length
             ? payload.message
             : "Processing...";

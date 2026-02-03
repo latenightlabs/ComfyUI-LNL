@@ -79,12 +79,13 @@ function setupFrameSelectorNodeHandlers(nodeType) {
         this.previewWidget.videoEl.pause();
         const pauseWidget = this.widgets?.find((w) => w.name === "pause_on_execute");
         const signature = computeFrameSelectorSignature(this);
-        if (this._lnlLastSignature === signature) {
+        const lastSignature = this._lnlLastSignature ?? this._lnlLastExecutedSignature;
+        if (lastSignature === signature) {
             this._lnlNeedsUpdate = false;
         } else {
             this._lnlNeedsUpdate = true;
-            this._lnlLastSignature = signature;
         }
+        this._lnlLastSignature = signature;
         setQueuedOnOtherFrameSelectors(this);
         this._lnlQueuedActive = false;
         if (pauseWidget?.value && (this._lnlNeedsUpdate ?? true)) {
@@ -100,7 +101,6 @@ function setupFrameSelectorNodeHandlers(nodeType) {
         this.previewWidget?.setProcessing?.(false);
         this._lnlNeedsUpdate = false;
         this._lnlQueuedActive = false;
-        this._lnlLastExecutedSignature = computeFrameSelectorSignature(this);
         const valueOrFirst = (value) => {
             if (Array.isArray(value)) {
                 return value.length ? value[0] : undefined;
@@ -182,6 +182,8 @@ function setupFrameSelectorNodeHandlers(nodeType) {
                 outPoint: updates.outPoint ?? this._lnlFrameState?.outPoint ?? 1,
             });
         }
+        this._lnlLastExecutedSignature = computeFrameSelectorSignature(this);
+        this._lnlLastSignature = this._lnlLastExecutedSignature;
     };
 
     const originalSetSize = nodeType.prototype.setSize;
