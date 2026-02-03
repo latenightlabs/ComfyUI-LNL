@@ -59,6 +59,11 @@ function setQueuedOnOtherFrameSelectors(activeNode) {
         if (!node._lnlNeedsUpdate) {
             continue;
         }
+        const signature = computeFrameSelectorSignature(node);
+        if (node._lnlLastExecutedSignature === signature) {
+            node._lnlNeedsUpdate = false;
+            continue;
+        }
         const pauseWidget = node.widgets?.find((w) => w.name === "pause_on_execute");
         if (!pauseWidget?.value) {
             continue;
@@ -95,6 +100,7 @@ function setupFrameSelectorNodeHandlers(nodeType) {
         this.previewWidget?.setProcessing?.(false);
         this._lnlNeedsUpdate = false;
         this._lnlQueuedActive = false;
+        this._lnlLastExecutedSignature = computeFrameSelectorSignature(this);
         const valueOrFirst = (value) => {
             if (Array.isArray(value)) {
                 return value.length ? value[0] : undefined;
