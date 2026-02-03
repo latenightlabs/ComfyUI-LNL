@@ -1138,6 +1138,16 @@ function applyFrameState(node, updates, options = {}) {
 
     Object.assign(state, nextState);
 
+    if (updates.totalFrames !== undefined) {
+        const widgetsToClamp = [node.currentFrameWidget, node.inPointWidget, node.outPointWidget];
+        for (const widget of widgetsToClamp) {
+            if (widget?.options) {
+                widget.options.min = 1;
+                widget.options.max = state.totalFrames;
+            }
+        }
+    }
+
     if (node.previewWidget?.value?.params) {
         if (updates.totalFrames) {
             node.previewWidget.value.params.totalFrames = state.totalFrames;
