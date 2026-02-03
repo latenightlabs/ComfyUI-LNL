@@ -4,6 +4,7 @@ import { createFrameSelectorWidgets } from "./VideoPlayer/videoPlayer.js";
 import { registerGroupExtensions, setupConfigAndSerialization } from "./EnhancedGroups/enhancedGroups.js";
 
 import { lnlAddStylesheet, lnlGetUrl } from "./utils.js";
+import { isFrameSelectorNode } from "./VideoPlayer/videoPlayer.js";
 
 function setQueuedOnOtherFrameSelectors(activeNode) {
     const nodes = activeNode?.graph?._nodes ?? app.graph?._nodes ?? [];
@@ -11,7 +12,7 @@ function setQueuedOnOtherFrameSelectors(activeNode) {
         if (!node || node === activeNode) {
             continue;
         }
-        if (!node.comfyClass?.includes("LNL Frame Selector")) {
+        if (!isFrameSelectorNode(node)) {
             continue;
         }
         if (node._lnlPauseActive || node._lnlWaitingForOtherPause) {

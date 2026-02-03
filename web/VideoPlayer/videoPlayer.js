@@ -1255,8 +1255,19 @@ function pauseVideoIfPlaying(previewWidget, playerControlsWidget) {
 }
 
 let pauseListenerRegistered = false;
+export function isFrameSelectorNode(node) {
+    if (!node) {
+        return false;
+    }
+    const comfyClass = node.comfyClass ?? "";
+    const type = node.type ?? "";
+    return comfyClass.includes("LNL Frame Selector")
+        || comfyClass.includes("LNL_FrameSelector")
+        || type.includes("LNL_FrameSelector");
+}
+
 function getFrameSelectorNodes() {
-    return app?.graph?._nodes?.filter((node) => node?.comfyClass?.includes("LNL Frame Selector")) ?? [];
+    return app?.graph?._nodes?.filter((node) => isFrameSelectorNode(node)) ?? [];
 }
 
 function setWaitingForOtherPause(activeNode, enabled) {
