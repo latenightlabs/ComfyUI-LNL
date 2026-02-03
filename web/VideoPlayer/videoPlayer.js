@@ -1847,7 +1847,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         registerPauseListener();
 
         const that = this;
-        this._lnlNeedsUpdate = true;
+        this._lnlNeedsUpdate = false;
         this.applyFrameState = (updates, options = {}) => applyFrameState(this, updates, options);
 
         // Create double slider widget (hidden canvas store)

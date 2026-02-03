@@ -18,7 +18,7 @@ function setQueuedOnOtherFrameSelectors(activeNode) {
         if (node._lnlPauseActive || node._lnlWaitingForOtherPause) {
             continue;
         }
-        if (node._lnlNeedsUpdate === false) {
+        if (!node._lnlNeedsUpdate) {
             continue;
         }
         const pauseWidget = node.widgets?.find((w) => w.name === "pause_on_execute");
