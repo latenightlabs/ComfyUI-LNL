@@ -1291,14 +1291,14 @@ function registerPauseListener() {
         if (!payload) {
             return;
         }
+        const node = app.graph?._nodes_by_id?.[payload.uid];
+        if (!node || !node.pauseControlsWidget) {
+            return;
+        }
         if (payload.graph_id !== undefined && payload.graph_id !== null && payload.graph_id !== "") {
             if (String(payload.graph_id) !== String(app.graph?.id)) {
                 return;
             }
-        }
-        const node = app.graph?._nodes_by_id?.[payload.uid];
-        if (!node || !node.pauseControlsWidget) {
-            return;
         }
         if (payload.timeout) {
             node.previewWidget?.setProcessing?.(false);
@@ -1357,14 +1357,14 @@ function registerPauseListener() {
         if (!payload) {
             return;
         }
+        const node = app.graph?._nodes_by_id?.[payload.uid];
+        if (!node?.previewWidget?.setProcessing) {
+            return;
+        }
         if (payload.graph_id !== undefined && payload.graph_id !== null && payload.graph_id !== "") {
             if (String(payload.graph_id) !== String(app.graph?.id)) {
                 return;
             }
-        }
-        const node = app.graph?._nodes_by_id?.[payload.uid];
-        if (!node?.previewWidget?.setProcessing) {
-            return;
         }
         const message = typeof payload.message === "string" && payload.message.length
             ? payload.message
