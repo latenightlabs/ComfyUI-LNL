@@ -5,11 +5,34 @@ import { registerGroupExtensions, setupConfigAndSerialization } from "./Enhanced
 
 import { lnlAddStylesheet, lnlGetUrl } from "./utils.js";
 
+function setQueuedOnOtherFrameSelectors(activeNode) {
+    const nodes = activeNode?.graph?._nodes ?? app.graph?._nodes ?? [];
+    for (const node of nodes) {
+        if (!node || node === activeNode) {
+            continue;
+        }
+        if (!node.comfyClass?.includes("LNL Frame Selector")) {
+            continue;
+        }
+        if (node._lnlPauseActive || node._lnlWaitingForOtherPause) {
+            continue;
+        }
+        const pauseWidget = node.widgets?.find((w) => w.name === "pause_on_execute");
+        if (!pauseWidget?.value) {
+            continue;
+        }
+        node._lnlQueuedActive = true;
+        node.previewWidget?.setProcessing?.(true, "Queued for execution...");
+    }
+}
+
 function setupFrameSelectorNodeHandlers(nodeType) {
     const originalOnExecutionStart = nodeType.prototype.onExecutionStart;
     nodeType.prototype.onExecutionStart = function () {
         this.previewWidget.videoEl.pause();
         const pauseWidget = this.widgets?.find((w) => w.name === "pause_on_execute");
+        setQueuedOnOtherFrameSelectors(this);
+        this._lnlQueuedActive = false;
         if (pauseWidget?.value) {
             this.previewWidget?.setProcessing?.(true, "Processing media...");
         }
