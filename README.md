@@ -46,8 +46,6 @@ $ pip install -r requirements.txt
 
 # To use the Frame Selector node:
 
-<img width="330" alt="image" src="https://github.com/latenightlabs/ComfyUI-LNL/assets/157748925/0b1be661-44b5-441b-aba4-17a479ddd96c">
-
 ## Inputs
 1. Choose Video to Upload: Select a video file for processing (in this case, 'input/logo.mp4').
 2. Optional Image Batch: Connect an IMAGE batch to use as the source instead of a file-based video.
