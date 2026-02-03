@@ -18,6 +18,9 @@ function setQueuedOnOtherFrameSelectors(activeNode) {
         if (node._lnlPauseActive || node._lnlWaitingForOtherPause) {
             continue;
         }
+        if (node._lnlNeedsUpdate === false) {
+            continue;
+        }
         const pauseWidget = node.widgets?.find((w) => w.name === "pause_on_execute");
         if (!pauseWidget?.value) {
             continue;
@@ -34,7 +37,7 @@ function setupFrameSelectorNodeHandlers(nodeType) {
         const pauseWidget = this.widgets?.find((w) => w.name === "pause_on_execute");
         setQueuedOnOtherFrameSelectors(this);
         this._lnlQueuedActive = false;
-        if (pauseWidget?.value) {
+        if (pauseWidget?.value && (this._lnlNeedsUpdate ?? true)) {
             this.previewWidget?.setProcessing?.(true, "Processing media...");
         }
 
@@ -45,6 +48,7 @@ function setupFrameSelectorNodeHandlers(nodeType) {
     nodeType.prototype.onExecuted = function (output) {
         originalOnExecuted?.apply(this, arguments);
         this.previewWidget?.setProcessing?.(false);
+        this._lnlNeedsUpdate = false;
         const valueOrFirst = (value) => {
             if (Array.isArray(value)) {
                 return value.length ? value[0] : undefined;

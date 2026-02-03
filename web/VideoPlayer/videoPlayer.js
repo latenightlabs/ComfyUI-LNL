@@ -1270,6 +1270,24 @@ function getFrameSelectorNodes() {
     return app?.graph?._nodes?.filter((node) => isFrameSelectorNode(node)) ?? [];
 }
 
+function markNodeNeedsUpdate(node) {
+    if (!node) {
+        return;
+    }
+    node._lnlNeedsUpdate = true;
+}
+
+function wrapWidgetCallback(widget, handler) {
+    if (!widget) {
+        return;
+    }
+    const original = widget.callback;
+    widget.callback = function () {
+        handler?.();
+        return original?.apply(this, arguments);
+    };
+}
+
 function setWaitingForOtherPause(activeNode, enabled) {
     const nodes = getFrameSelectorNodes();
     for (const node of nodes) {
@@ -1278,6 +1296,9 @@ function setWaitingForOtherPause(activeNode, enabled) {
         }
         const pauseWidget = node.widgets?.find((w) => w.name === "pause_on_execute");
         if (!pauseWidget?.value) {
+            continue;
+        }
+        if (!node._lnlNeedsUpdate) {
             continue;
         }
         if (node._lnlPauseActive) {
@@ -1826,6 +1847,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         registerPauseListener();
 
         const that = this;
+        this._lnlNeedsUpdate = true;
         this.applyFrameState = (updates, options = {}) => applyFrameState(this, updates, options);
 
         // Create double slider widget (hidden canvas store)
@@ -1839,6 +1861,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         // Add path widget
         const pathWidget = this.widgets.find((w) => w.name === "video_path");
         pathWidget.callback = (value, componentCreated) => {
+            markNodeNeedsUpdate(that);
             if (typeof componentCreated === "boolean" && componentCreated === true) {
                 this.componentCreated = true;
             }
@@ -1905,9 +1928,12 @@ export async function createFrameSelectorWidgets(nodeType) {
                 customHeightWidget.value = customHeightWidget.options?.default ?? 512;
             }
             sizeWidget.callback = (value) => {
+                markNodeNeedsUpdate(that);
                 updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
                 lnl_fitHeight(that);
             };
+            wrapWidgetCallback(customWidthWidget, () => markNodeNeedsUpdate(that));
+            wrapWidgetCallback(customHeightWidget, () => markNodeNeedsUpdate(that));
             updateCustomSizeLogic(sizeWidget, customWidthWidget, customHeightWidget);
             lnl_fitHeight(that);
         }
@@ -1991,6 +2017,7 @@ export async function createFrameSelectorWidgets(nodeType) {
 
         // Add In/Out point and frame widgets
         const currentFrameWidget = this.addWidget("number", "current_frame", -1, (value) => {
+            markNodeNeedsUpdate(this);
             if (this._lnlSuppressWidgetCallbacks) {
                 return;
             }
@@ -1999,6 +2026,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         this.currentFrameWidget = currentFrameWidget;
 
         const inPointWidget = this.addWidget("number", "in_point", -1, (value) => {
+            markNodeNeedsUpdate(this);
             if (this._lnlSuppressWidgetCallbacks) {
                 return;
             }
@@ -2007,6 +2035,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         this.inPointWidget = inPointWidget;
 
         const outPointWidget = this.addWidget("number", "out_point", -1, (value) => {
+            markNodeNeedsUpdate(this);
             if (this._lnlSuppressWidgetCallbacks) {
                 return;
             }
@@ -2015,7 +2044,9 @@ export async function createFrameSelectorWidgets(nodeType) {
         this.outPointWidget = outPointWidget;
 
         // Select every nth frame
-        const selectEveryNthFrameWidget = this.addWidget("number", "select_every_nth_frame", 1, (value) => {}, { min: 1, step: 10, precision: 0 });
+        const selectEveryNthFrameWidget = this.addWidget("number", "select_every_nth_frame", 1, (value) => {
+            markNodeNeedsUpdate(this);
+        }, { min: 1, step: 10, precision: 0 });
         this.selectEveryNthFrameWidget = selectEveryNthFrameWidget;
 
         // Make sure to reload video after refreshing
@@ -2043,6 +2074,9 @@ export async function createFrameSelectorWidgets(nodeType) {
     nodeType.prototype.onConnectionsChange = function (type, index, connected, link_info, input) {
         originalOnConnectionsChange?.apply(this, arguments);
         const inputName = input?.name ?? this.inputs?.[index]?.name;
+        if (inputName === "images" || inputName === "audio") {
+            markNodeNeedsUpdate(this);
+        }
         updateVideoInputAvailability(this);
         if (inputName === "images" && connected) {
             scheduleInputAvailabilitySync(this);
