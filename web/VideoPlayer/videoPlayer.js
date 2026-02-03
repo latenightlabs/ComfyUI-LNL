@@ -1295,6 +1295,11 @@ function getNodeByUid(uid) {
     const target = String(uid);
     return nodes.find((node) => String(node?.id) === target) ?? null;
 }
+
+function getSingleFrameSelectorNode() {
+    const nodes = getFrameSelectorNodes();
+    return nodes.length === 1 ? nodes[0] : null;
+}
 function registerPauseListener() {
     if (pauseListenerRegistered) {
         return;
@@ -1305,7 +1310,10 @@ function registerPauseListener() {
         if (!payload) {
             return;
         }
-        const node = getNodeByUid(payload.uid);
+        let node = getNodeByUid(payload.uid);
+        if (!node) {
+            node = getSingleFrameSelectorNode();
+        }
         if (!node || !node.pauseControlsWidget) {
             return;
         }
@@ -1371,7 +1379,10 @@ function registerPauseListener() {
         if (!payload) {
             return;
         }
-        const node = getNodeByUid(payload.uid);
+        let node = getNodeByUid(payload.uid);
+        if (!node) {
+            node = getSingleFrameSelectorNode();
+        }
         if (!node?.previewWidget?.setProcessing) {
             return;
         }
