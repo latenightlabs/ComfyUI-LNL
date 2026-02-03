@@ -259,11 +259,13 @@ function createPauseControlsWidget(hostNode) {
     continueBtn.addEventListener("click", async () => {
         pauseWidget.setVisible(false);
         hostNode._lnlPauseActive = false;
+        setWaitingForOtherPause(hostNode, false);
         await sendPauseResponse(hostNode, { special: null });
     });
     cancelBtn.addEventListener("click", async () => {
         pauseWidget.setVisible(false);
         hostNode._lnlPauseActive = false;
+        setWaitingForOtherPause(hostNode, false);
         await sendPauseResponse(hostNode, { special: "-3" });
     });
 
@@ -1250,6 +1252,35 @@ function pauseVideoIfPlaying(previewWidget, playerControlsWidget) {
 }
 
 let pauseListenerRegistered = false;
+function getFrameSelectorNodes() {
+    return app?.graph?._nodes?.filter((node) => node?.comfyClass?.includes("LNL Frame Selector")) ?? [];
+}
+
+function setWaitingForOtherPause(activeNode, enabled) {
+    const nodes = getFrameSelectorNodes();
+    for (const node of nodes) {
+        if (!node || node === activeNode) {
+            continue;
+        }
+        const pauseWidget = node.widgets?.find((w) => w.name === "pause_on_execute");
+        if (!pauseWidget?.value) {
+            continue;
+        }
+        if (node._lnlProcessingActive) {
+            continue;
+        }
+        if (!node.previewWidget?.setProcessing) {
+            continue;
+        }
+        node._lnlWaitingForOtherPause = enabled;
+        if (enabled) {
+            node.previewWidget.setProcessing(true, "Waiting for other pause...");
+        } else if (node._lnlWaitingForOtherPause) {
+            node._lnlWaitingForOtherPause = false;
+            node.previewWidget.setProcessing(false);
+        }
+    }
+}
 function registerPauseListener() {
     if (pauseListenerRegistered) {
         return;
@@ -1273,6 +1304,7 @@ function registerPauseListener() {
             node.previewWidget?.setProcessing?.(false);
             node.pauseControlsWidget.setVisible(false);
             node._lnlPauseActive = false;
+            setWaitingForOtherPause(node, false);
             return;
         }
         if (typeof payload.tick === "number") {
@@ -1281,6 +1313,7 @@ function registerPauseListener() {
         }
         node.previewWidget?.setProcessing?.(false);
         node._lnlPauseActive = true;
+        setWaitingForOtherPause(node, true);
         if (payload.preview_sequence && node.previewWidget?.useImageSequence) {
             node.previewWidget.useImageSequence(payload.preview_sequence, {
                 currentFrame: payload.current_frame,
