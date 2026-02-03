@@ -2017,34 +2017,37 @@ export async function createFrameSelectorWidgets(nodeType) {
 
         // Add In/Out point and frame widgets
         const currentFrameWidget = this.addWidget("number", "current_frame", -1, (value) => {
-            markNodeNeedsUpdate(this);
             if (this._lnlSuppressWidgetCallbacks) {
                 return;
             }
+            markNodeNeedsUpdate(this);
             previewWidget.videoEl.setCurrentFrame(value);
         }, { min: 1, max: 1, step: 10, precision: 0 });
         this.currentFrameWidget = currentFrameWidget;
 
         const inPointWidget = this.addWidget("number", "in_point", -1, (value) => {
-            markNodeNeedsUpdate(this);
             if (this._lnlSuppressWidgetCallbacks) {
                 return;
             }
+            markNodeNeedsUpdate(this);
             previewWidget.videoEl.setInPoint(value);
         }, { min: 1, max: 1, step: 10, precision: 0 });
         this.inPointWidget = inPointWidget;
 
         const outPointWidget = this.addWidget("number", "out_point", -1, (value) => {
-            markNodeNeedsUpdate(this);
             if (this._lnlSuppressWidgetCallbacks) {
                 return;
             }
+            markNodeNeedsUpdate(this);
             previewWidget.videoEl.setOutPoint(value);
         }, { min: 1, max: 1, step: 10, precision: 0 });
         this.outPointWidget = outPointWidget;
 
         // Select every nth frame
         const selectEveryNthFrameWidget = this.addWidget("number", "select_every_nth_frame", 1, (value) => {
+            if (this._lnlSuppressWidgetCallbacks) {
+                return;
+            }
             markNodeNeedsUpdate(this);
         }, { min: 1, step: 10, precision: 0 });
         this.selectEveryNthFrameWidget = selectEveryNthFrameWidget;
