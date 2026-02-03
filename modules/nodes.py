@@ -292,8 +292,7 @@ class FrameSelectorV3():
         full_video_path = None
         if using_image_batch:
             total_from_images = _get_images_length(images)
-            if total_frames <= 0:
-                total_frames = _safe_int(total_from_images, 1)
+            total_frames = _safe_int(total_from_images, 1)
             if frame_rate <= 0.0:
                 frame_rate = 30.0
         else:
