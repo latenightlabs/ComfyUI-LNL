@@ -94,6 +94,7 @@ function setupFrameSelectorNodeHandlers(nodeType) {
         originalOnExecuted?.apply(this, arguments);
         this.previewWidget?.setProcessing?.(false);
         this._lnlNeedsUpdate = false;
+        this._lnlQueuedActive = false;
         const valueOrFirst = (value) => {
             if (Array.isArray(value)) {
                 return value.length ? value[0] : undefined;

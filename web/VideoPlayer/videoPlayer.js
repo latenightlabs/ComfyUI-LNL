@@ -1298,7 +1298,7 @@ function setWaitingForOtherPause(activeNode, enabled) {
         if (!pauseWidget?.value) {
             continue;
         }
-        if (!node._lnlNeedsUpdate) {
+        if (!node._lnlQueuedActive) {
             continue;
         }
         if (node._lnlPauseActive) {
