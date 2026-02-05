@@ -3,6 +3,7 @@ from aiohttp import web
 from comfy.model_management import InterruptProcessingException, throw_exception_if_processing_interrupted
 import time, json
 from typing import Optional
+from .audio_preview import get_video_audio_preview
 
 REQUEST_RESHOW = "-1"
 CANCEL = "-3"
@@ -110,6 +111,15 @@ async def lnl_frame_selector_message(request):
         if MessageState.waiting():
             MessageState.set_latest(message)
     return web.json_response({})
+
+
+@PromptServer.instance.routes.get("/lnl-frame-selector-audio-preview")
+async def lnl_frame_selector_audio_preview(request):
+    filename = request.rel_url.query.get("filename")
+    if not filename:
+        return web.json_response({"preview": None})
+    preview = get_video_audio_preview(filename)
+    return web.json_response({"preview": preview})
 
 
 def wait_for_response(secs, uid, graph_id) -> Response:

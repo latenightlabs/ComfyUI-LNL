@@ -707,6 +707,31 @@ function createVideoPreviewWidget(hostNode) {
         previewWidget.audioEl.load();
     };
 
+    previewWidget.requestVideoAudioPreview = async () => {
+        if (!previewWidget._useVideoAudio) {
+            return;
+        }
+        const filename = previewWidget.value?.params?.filename;
+        if (!filename) {
+            return;
+        }
+        const requestId = (previewWidget._audioPreviewRequestId ?? 0) + 1;
+        previewWidget._audioPreviewRequestId = requestId;
+        try {
+            const params = new URLSearchParams({ filename });
+            const res = await api.fetchApi(`/lnl-frame-selector-audio-preview?${params.toString()}`);
+            const json = await res.json();
+            if (previewWidget._audioPreviewRequestId !== requestId) {
+                return;
+            }
+            if (json?.preview) {
+                previewWidget.setAudioSource(json.preview);
+            }
+        } catch {
+            // ignore preview errors
+        }
+    };
+
     previewWidget.getAudioTimeForFrame = (frame) => {
         const duration = previewWidget.value?.params?.duration ?? 0;
         const frameDuration = previewWidget.value?.params?.frameDuration ?? 0;
@@ -1044,7 +1069,7 @@ function createVideoPreviewWidget(hostNode) {
         Object.assign(previewWidget.value.params, params || {});
         previewWidget.updateSource();
         if (previewWidget._useVideoAudio) {
-            previewWidget.setAudioSourceFromVideo?.();
+            previewWidget.requestVideoAudioPreview?.();
         }
     };
 
@@ -2009,7 +2034,7 @@ function updateVideoInputAvailability(node) {
     if (node.previewWidget) {
         node._lnlUseVideoAudio = !hasImageInput && !hasAudioInput;
         if (node._lnlUseVideoAudio) {
-            node.previewWidget.setAudioSourceFromVideo?.();
+            node.previewWidget.requestVideoAudioPreview?.();
         } else if (!hasAudioInput) {
             node.previewWidget.clearAudioSource?.();
         }
