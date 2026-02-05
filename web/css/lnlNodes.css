@@ -161,6 +161,33 @@
     background: #c12926;
 }
 
+.lnl-audio-envelope {
+    position: relative;
+    width: 100%;
+    height: 18px;
+    margin-top: 4px;
+    box-sizing: border-box;
+}
+
+.lnl-audio-envelope-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: rgba(30, 32, 36, 0.65);
+    border-radius: 3px;
+}
+
+.lnl-audio-silence {
+    position: absolute;
+    right: 6px;
+    top: 1px;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: rgba(220, 220, 220, 0.75);
+    pointer-events: none;
+}
+
 .lnl-pause-controls {
     width: 100%;
     display: flex;

@@ -101,6 +101,11 @@ def _get_video_audio_cache_key(video_path, total_duration):
         return None
     return ("video_audio", str(video_path), float(total_duration))
 
+def _get_audio_envelope_cache_key(audio_key, bins):
+    if audio_key is None:
+        return None
+    return ("audio_env", audio_key, int(bins))
+
 def _sequence_frame_path(sequence, index):
     if not sequence:
         return None
@@ -149,6 +154,33 @@ def _save_audio_preview(audio, unique_id):
         "subfolder": subfolder,
         "type": "temp",
     }
+
+def _compute_audio_envelope(audio, total_frames, bins=None):
+    audio_dict = _normalize_audio_dict(audio)
+    if not audio_dict:
+        return None
+    waveform = _ensure_waveform_tensor(audio_dict.get("waveform"))
+    if waveform is None or waveform.numel() == 0:
+        return None
+    waveform = waveform.detach().cpu().float().squeeze(0)
+    if waveform.dim() == 1:
+        waveform = waveform.unsqueeze(0)
+    mono = waveform.mean(0)
+    total_samples = int(mono.numel())
+    if total_samples <= 0:
+        return None
+    bins = int(bins or 0)
+    if bins <= 0:
+        bins = total_frames if total_frames and total_frames > 0 else 240
+    bins = max(16, min(int(bins), total_samples, 240))
+    step = max(1, total_samples // bins)
+    trimmed = mono[: step * bins]
+    if trimmed.numel() <= 0:
+        return None
+    shaped = trimmed.reshape(bins, step)
+    rms = torch.sqrt(torch.mean(shaped ** 2, dim=1))
+    max_val = float(rms.max().item()) if rms.numel() else 0.0
+    return {"values": rms.tolist(), "max": max_val, "bins": int(bins)}
 
 def _resize_image_batch(images, force_size, custom_width, custom_height):
     if images is None:
@@ -412,8 +444,11 @@ class FrameSelectorV3():
                 "frame_rate": frame_rate,
             }
             total_duration = (total_frames / frame_rate) if frame_rate else 0.0
+            envelope_audio = None
+            audio_cache_key = None
             if audio is not None:
                 aligned_audio = _align_audio_to_video(audio, total_duration, 0.0, total_duration)
+                envelope_audio = aligned_audio
                 audio_cache_key = _get_audio_cache_key(aligned_audio, total_duration)
                 cached_audio = getattr(self, "_lnl_cached_audio_preview", None)
                 audio_preview = None
@@ -430,6 +465,7 @@ class FrameSelectorV3():
                     payload["audio_preview"] = audio_preview
             elif not using_image_batch and full_video_path:
                 video_audio_key = _get_video_audio_cache_key(full_video_path, total_duration)
+                video_audio = None
                 cached_audio = getattr(self, "_lnl_cached_audio_preview", None)
                 audio_preview = None
                 if cached_audio and cached_audio.get("key") == video_audio_key:
@@ -439,6 +475,7 @@ class FrameSelectorV3():
                         video_audio = lnl_get_audio(full_video_path, 0.0, total_duration)
                     except Exception:
                         video_audio = _empty_audio_dict()
+                    envelope_audio = video_audio
                     audio_preview = _save_audio_preview(video_audio, unique_id)
                     if audio_preview:
                         self._lnl_cached_audio_preview = {
@@ -447,6 +484,40 @@ class FrameSelectorV3():
                         }
                 if audio_preview:
                     payload["audio_preview"] = audio_preview
+                audio_cache_key = video_audio_key
+
+            if envelope_audio is not None:
+                bins = min(240, total_frames) if total_frames else 240
+                envelope_cache_key = _get_audio_envelope_cache_key(audio_cache_key, bins)
+                cached_env = getattr(self, "_lnl_cached_audio_envelope", None)
+                envelope = None
+                if cached_env and cached_env.get("key") == envelope_cache_key:
+                    envelope = cached_env.get("envelope")
+                if envelope is None:
+                    envelope = _compute_audio_envelope(envelope_audio, total_frames, bins=bins)
+                    if envelope:
+                        self._lnl_cached_audio_envelope = {
+                            "key": envelope_cache_key,
+                            "envelope": envelope,
+                        }
+                if envelope:
+                    payload["audio_envelope"] = envelope
+            elif audio_cache_key is not None and not using_image_batch and full_video_path:
+                bins = min(240, total_frames) if total_frames else 240
+                envelope_cache_key = _get_audio_envelope_cache_key(audio_cache_key, bins)
+                cached_env = getattr(self, "_lnl_cached_audio_envelope", None)
+                if not (cached_env and cached_env.get("key") == envelope_cache_key):
+                    try:
+                        envelope_audio = lnl_get_audio(full_video_path, 0.0, total_duration)
+                    except Exception:
+                        envelope_audio = _empty_audio_dict()
+                    envelope = _compute_audio_envelope(envelope_audio, total_frames, bins=bins)
+                    if envelope:
+                        self._lnl_cached_audio_envelope = {
+                            "key": envelope_cache_key,
+                            "envelope": envelope,
+                        }
+                        payload["audio_envelope"] = envelope
             if using_image_batch:
                 preview_cache_key = (images_cache_key, frame_rate, total_frames)
                 preview_sequence = None

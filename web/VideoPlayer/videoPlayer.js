@@ -418,6 +418,92 @@ function createTimelineWidget(hostNode) {
     return timelineWidget;
 }
 
+function createAudioEnvelopeWidget(hostNode) {
+    const element = document.createElement("div");
+    element.className = "lnl-audio-envelope";
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "lnl-audio-envelope-canvas";
+    element.appendChild(canvas);
+
+    const silentEl = document.createElement("div");
+    silentEl.className = "lnl-audio-silence";
+    silentEl.textContent = "silence";
+    silentEl.style.display = "none";
+    element.appendChild(silentEl);
+
+    const widget = hostNode.addDOMWidget("audio_envelope_widget", "lnl_audio_envelope", element, {
+        serialize: false,
+        hideOnZoom: false,
+    });
+    widget.computeSize = function (width) {
+        return [width, 18];
+    };
+    widget.envelope = null;
+    widget.totalFrames = 1;
+    widget.currentFrame = 1;
+
+    const draw = () => {
+        const values = widget.envelope?.values;
+        if (!values || !values.length) {
+            element.style.display = "none";
+            return;
+        }
+        element.style.display = "";
+        const width = element.clientWidth || 1;
+        const height = element.clientHeight || 1;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return;
+        }
+        ctx.clearRect(0, 0, width, height);
+        const maxVal = widget.envelope?.max || 1e-6;
+        const threshold = maxVal * 0.05;
+        const binCount = values.length;
+        const step = width / binCount;
+        for (let i = 0; i < binCount; i += 1) {
+            const value = values[i];
+            const ratio = Math.min(1, value / maxVal);
+            const barHeight = Math.max(1, ratio * (height - 2));
+            const x = i * step;
+            ctx.fillStyle = value < threshold ? "rgba(170, 176, 186, 0.6)" : "rgba(180, 120, 120, 0.9)";
+            ctx.fillRect(x, height - barHeight, Math.max(1, step * 0.9), barHeight);
+        }
+        if (widget.totalFrames > 1) {
+            const idx = Math.round((widget.currentFrame - 1) / (widget.totalFrames - 1) * (binCount - 1));
+            const currentVal = values[idx] ?? 0;
+            const x = idx * step + step * 0.5;
+            ctx.strokeStyle = "rgba(240, 240, 240, 0.8)";
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+            ctx.stroke();
+            silentEl.style.display = currentVal < threshold ? "block" : "none";
+        } else {
+            silentEl.style.display = "none";
+        }
+    };
+
+    widget.setEnvelope = (envelope, totalFrames) => {
+        widget.envelope = envelope;
+        widget.totalFrames = totalFrames || widget.totalFrames;
+        draw();
+    };
+    widget.updateCurrentFrame = (frame) => {
+        widget.currentFrame = frame || widget.currentFrame;
+        draw();
+    };
+    widget.clear = () => {
+        widget.envelope = null;
+        silentEl.style.display = "none";
+        element.style.display = "none";
+    };
+    widget.redraw = draw;
+    return widget;
+}
+
 function buildSequenceFrameUrl(sequence, frameIndex) {
     if (!sequence) {
         return "";
@@ -1414,6 +1500,7 @@ function applyFrameState(node, updates, options = {}) {
     if (node.timelineWidget?.update) {
         node.timelineWidget.update(state);
     }
+    node.audioEnvelopeWidget?.updateCurrentFrame?.(state.currentFrame);
     requestNodeRedraw(node);
 
     if (options.updateVideo && node.previewWidget?.videoEl) {
@@ -1597,6 +1684,11 @@ function registerPauseListener() {
                 inPoint: payload.in_point,
                 outPoint: payload.out_point,
             });
+        }
+        if (payload.audio_envelope && node.audioEnvelopeWidget?.setEnvelope) {
+            node.audioEnvelopeWidget.setEnvelope(payload.audio_envelope, payload.total_frames);
+        } else {
+            node.audioEnvelopeWidget?.clear?.();
         }
         if (node.previewWidget?.setAudioSource) {
             if (payload.audio_preview) {
@@ -2139,6 +2231,10 @@ export async function createFrameSelectorWidgets(nodeType) {
         // Add timeline widget
         const timelineWidget = createTimelineWidget(this);
         this.timelineWidget = timelineWidget;
+
+        // Audio envelope widget (below timeline)
+        const audioEnvelopeWidget = createAudioEnvelopeWidget(this);
+        this.audioEnvelopeWidget = audioEnvelopeWidget;
 
         // Pause controls widget
         const pauseControlsWidget = createPauseControlsWidget(this);
