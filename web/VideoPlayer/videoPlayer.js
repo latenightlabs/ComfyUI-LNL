@@ -2251,6 +2251,9 @@ export async function createFrameSelectorWidgets(nodeType) {
         if (inputName === "images" || inputName === "audio") {
             markNodeNeedsUpdate(this);
         }
+        if (inputName === "audio" && !connected) {
+            this.previewWidget?.clearAudioSource?.();
+        }
         updateVideoInputAvailability(this);
         if (inputName === "images" && connected) {
             scheduleInputAvailabilitySync(this);
