@@ -675,6 +675,33 @@ function createVideoPreviewWidget(hostNode) {
         if (!url || previewWidget._audioSrc === url) {
             return;
         }
+        previewWidget._useVideoAudio = false;
+        previewWidget._audioSrc = url;
+        previewWidget.audioEl.src = url;
+        previewWidget.audioEl.load();
+    };
+
+    previewWidget.setAudioSourceFromVideo = () => {
+        if (!previewWidget.audioEl) {
+            return;
+        }
+        const filename = previewWidget.value?.params?.filename;
+        if (!filename) {
+            previewWidget.clearAudioSource();
+            return;
+        }
+        const params = new URLSearchParams({ filename });
+        if (previewWidget.value?.params?.type) {
+            params.set("type", previewWidget.value.params.type);
+        }
+        if (previewWidget.value?.params?.format) {
+            params.set("format", previewWidget.value.params.format);
+        }
+        const url = api.apiURL(`/view?${params}`);
+        if (previewWidget._audioSrc === url) {
+            return;
+        }
+        previewWidget._useVideoAudio = true;
         previewWidget._audioSrc = url;
         previewWidget.audioEl.src = url;
         previewWidget.audioEl.load();
@@ -1016,6 +1043,9 @@ function createVideoPreviewWidget(hostNode) {
         }
         Object.assign(previewWidget.value.params, params || {});
         previewWidget.updateSource();
+        if (previewWidget._useVideoAudio) {
+            previewWidget.setAudioSourceFromVideo?.();
+        }
     };
 
     previewWidget.videoEl.getFrameForNValue = function (nvalue) {
@@ -1546,6 +1576,7 @@ function registerPauseListener() {
         if (node.previewWidget?.setAudioSource) {
             if (payload.audio_preview) {
                 node.previewWidget.setAudioSource(payload.audio_preview);
+                node._lnlUseVideoAudio = false;
             } else {
                 node.previewWidget.clearAudioSource?.();
             }
@@ -1950,6 +1981,7 @@ function updateVideoInputAvailability(node) {
         return;
     }
     const hasImageInput = isInputConnected(node, "images");
+    const hasAudioInput = isInputConnected(node, "audio");
     const previousState = node._lnlUsingImageInput;
     node._lnlUsingImageInput = hasImageInput;
     if (node.pathWidget) {
@@ -1972,6 +2004,14 @@ function updateVideoInputAvailability(node) {
         node.previewWidget.useVideoSource();
         if (previousState && node.pathWidget?.callback) {
             node.pathWidget.callback(node.pathWidget.value, true);
+        }
+    }
+    if (node.previewWidget) {
+        node._lnlUseVideoAudio = !hasImageInput && !hasAudioInput;
+        if (node._lnlUseVideoAudio) {
+            node.previewWidget.setAudioSourceFromVideo?.();
+        } else if (!hasAudioInput) {
+            node.previewWidget.clearAudioSource?.();
         }
     }
     lnl_fitHeight(node);
