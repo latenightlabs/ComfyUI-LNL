@@ -96,6 +96,11 @@ def _get_audio_cache_key(audio, total_duration):
     except Exception:
         return ("audio_obj", id(audio), sample_rate, float(total_duration))
 
+def _get_video_audio_cache_key(video_path, total_duration):
+    if not video_path:
+        return None
+    return ("video_audio", str(video_path), float(total_duration))
+
 def _sequence_frame_path(sequence, index):
     if not sequence:
         return None
@@ -419,6 +424,25 @@ class FrameSelectorV3():
                     if audio_preview:
                         self._lnl_cached_audio_preview = {
                             "key": audio_cache_key,
+                            "preview": audio_preview,
+                        }
+                if audio_preview:
+                    payload["audio_preview"] = audio_preview
+            elif not using_image_batch and full_video_path:
+                video_audio_key = _get_video_audio_cache_key(full_video_path, total_duration)
+                cached_audio = getattr(self, "_lnl_cached_audio_preview", None)
+                audio_preview = None
+                if cached_audio and cached_audio.get("key") == video_audio_key:
+                    audio_preview = cached_audio.get("preview")
+                if audio_preview is None:
+                    try:
+                        video_audio = lnl_get_audio(full_video_path, 0.0, total_duration)
+                    except Exception:
+                        video_audio = _empty_audio_dict()
+                    audio_preview = _save_audio_preview(video_audio, unique_id)
+                    if audio_preview:
+                        self._lnl_cached_audio_preview = {
+                            "key": video_audio_key,
                             "preview": audio_preview,
                         }
                 if audio_preview:
