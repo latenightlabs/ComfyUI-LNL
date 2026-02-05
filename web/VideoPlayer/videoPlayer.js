@@ -421,6 +421,7 @@ function createTimelineWidget(hostNode) {
 function createAudioEnvelopeWidget(hostNode) {
     const element = document.createElement("div");
     element.className = "lnl-audio-envelope";
+    element.style.cursor = "pointer";
 
     const canvas = document.createElement("canvas");
     canvas.className = "lnl-audio-envelope-canvas";
@@ -442,6 +443,59 @@ function createAudioEnvelopeWidget(hostNode) {
     widget.envelope = null;
     widget.totalFrames = 1;
     widget.currentFrame = 1;
+
+    const updateFromPointer = (event) => {
+        const rect = element.getBoundingClientRect();
+        if (!rect.width) {
+            return;
+        }
+        const x = clamp(event.clientX - rect.left, 0, rect.width);
+        const nvalue = x / rect.width;
+        if (!hostNode.previewWidget?.videoEl) {
+            return;
+        }
+        pauseVideoIfPlaying(hostNode.previewWidget, hostNode.playerControlsWidget);
+        const totalFrames = getTotalFramesFromNode(hostNode);
+        const targetFrame = Math.round(nvalue * (totalFrames - 1)) + 1;
+        const clampedFrame = clamp(targetFrame, 1, totalFrames);
+        hostNode._lnlScrubActive = true;
+        hostNode.previewWidget.videoEl.setCurrentFrame(clampedFrame);
+    };
+
+    element.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+            return;
+        }
+        event.preventDefault();
+        widget.dragging = true;
+        element.setPointerCapture(event.pointerId);
+        updateFromPointer(event);
+    });
+    element.addEventListener("pointermove", (event) => {
+        if (!widget.dragging) {
+            return;
+        }
+        event.preventDefault();
+        updateFromPointer(event);
+    });
+    element.addEventListener("pointerup", (event) => {
+        if (!widget.dragging) {
+            return;
+        }
+        event.preventDefault();
+        widget.dragging = false;
+        hostNode._lnlScrubActive = false;
+        try {
+            element.releasePointerCapture(event.pointerId);
+        } catch {
+            // no-op
+        }
+        updateFromPointer(event);
+    });
+    element.addEventListener("pointercancel", () => {
+        widget.dragging = false;
+        hostNode._lnlScrubActive = false;
+    });
 
     const draw = () => {
         const values = widget.envelope?.values;
