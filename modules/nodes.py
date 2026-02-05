@@ -1,5 +1,6 @@
 import os
 import time
+import wave
 from collections.abc import Mapping
 
 import torch
@@ -73,6 +74,28 @@ def _get_images_cache_key(images, force_size, custom_width, custom_height):
     except Exception:
         return ("object", id(images), force_size, custom_width, custom_height)
 
+def _get_audio_cache_key(audio, total_duration):
+    audio_dict = _normalize_audio_dict(audio)
+    if not audio_dict:
+        return None
+    waveform = audio_dict.get("waveform")
+    sample_rate = int(audio_dict.get("sample_rate") or 44100)
+    try:
+        if not isinstance(waveform, torch.Tensor):
+            waveform = torch.as_tensor(waveform)
+        data_ptr = None
+        try:
+            data_ptr = waveform.untyped_storage().data_ptr()
+        except Exception:
+            try:
+                data_ptr = waveform.storage().data_ptr()
+            except Exception:
+                data_ptr = None
+        shape = tuple(waveform.shape)
+        return ("audio", data_ptr, shape, sample_rate, float(total_duration))
+    except Exception:
+        return ("audio_obj", id(audio), sample_rate, float(total_duration))
+
 def _sequence_frame_path(sequence, index):
     if not sequence:
         return None
@@ -85,6 +108,42 @@ def _sequence_frame_path(sequence, index):
     filename = f"{prefix}_{str(index).zfill(pad)}.{ext}"
     target_dir = os.path.join(folder_paths.get_temp_directory(), subfolder)
     return os.path.join(target_dir, filename)
+
+def _save_audio_preview(audio, unique_id):
+    audio_dict = _normalize_audio_dict(audio)
+    if not audio_dict:
+        return None
+    sample_rate = int(audio_dict.get("sample_rate") or 44100)
+    if sample_rate <= 0:
+        sample_rate = 44100
+    waveform = _ensure_waveform_tensor(audio_dict.get("waveform"))
+    if waveform is None or waveform.numel() == 0:
+        return None
+    waveform = waveform.detach().cpu().float().squeeze(0)
+    if waveform.dim() == 1:
+        waveform = waveform.unsqueeze(0)
+    waveform = torch.clamp(waveform, -1.0, 1.0)
+    audio_np = (waveform * 32767.0).to(torch.int16).numpy()
+    interleaved = audio_np.T.reshape(-1)
+
+    temp_dir = folder_paths.get_temp_directory()
+    subfolder = "lnl_frame_selector"
+    target_dir = os.path.join(temp_dir, subfolder)
+    _cleanup_temp_sequences(target_dir)
+    os.makedirs(target_dir, exist_ok=True)
+    timestamp = int(time.time() * 1000)
+    filename = f"lnl_audio_{unique_id}_{timestamp}.wav"
+    file_path = os.path.join(target_dir, filename)
+    with wave.open(file_path, "wb") as wav:
+        wav.setnchannels(audio_np.shape[0])
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        wav.writeframes(interleaved.tobytes())
+    return {
+        "filename": filename,
+        "subfolder": subfolder,
+        "type": "temp",
+    }
 
 def _resize_image_batch(images, force_size, custom_width, custom_height):
     if images is None:
@@ -347,6 +406,23 @@ class FrameSelectorV3():
                 "total_frames": total_frames,
                 "frame_rate": frame_rate,
             }
+            total_duration = (total_frames / frame_rate) if frame_rate else 0.0
+            if audio is not None:
+                aligned_audio = _align_audio_to_video(audio, total_duration, 0.0, total_duration)
+                audio_cache_key = _get_audio_cache_key(aligned_audio, total_duration)
+                cached_audio = getattr(self, "_lnl_cached_audio_preview", None)
+                audio_preview = None
+                if cached_audio and cached_audio.get("key") == audio_cache_key:
+                    audio_preview = cached_audio.get("preview")
+                if audio_preview is None:
+                    audio_preview = _save_audio_preview(aligned_audio, unique_id)
+                    if audio_preview:
+                        self._lnl_cached_audio_preview = {
+                            "key": audio_cache_key,
+                            "preview": audio_preview,
+                        }
+                if audio_preview:
+                    payload["audio_preview"] = audio_preview
             if using_image_batch:
                 preview_cache_key = (images_cache_key, frame_rate, total_frames)
                 preview_sequence = None

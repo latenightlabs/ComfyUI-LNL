@@ -62,6 +62,7 @@ function createDoubleSliderWidget(hostNode, widgetName) {
             return;
         }
         event.preventDefault();
+        hostNode._lnlScrubActive = true;
         doubleSliderWidget.pointerIsDown = true;
         const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
         if (sliderWidget) {
@@ -84,6 +85,7 @@ function createDoubleSliderWidget(hostNode, widgetName) {
         }
         event.preventDefault();
         doubleSliderWidget.dragging = false;
+        hostNode._lnlScrubActive = false;
         doubleSliderWidget.pointerIsDown = false;
         const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
         if (sliderWidget) {
@@ -98,6 +100,7 @@ function createDoubleSliderWidget(hostNode, widgetName) {
     });
     doubleSliderWidget.inputEl.addEventListener("pointercancel", (event) => {
         doubleSliderWidget.dragging = false;
+        hostNode._lnlScrubActive = false;
         doubleSliderWidget.pointerIsDown = false;
         const sliderWidget = getPrimaryDoubleSliderWidget(hostNode);
         if (sliderWidget) {
@@ -376,6 +379,7 @@ function createTimelineWidget(hostNode) {
             return;
         }
         event.preventDefault();
+        hostNode._lnlScrubActive = true;
         timelineWidget.dragging = true;
         trackEl.setPointerCapture(event.pointerId);
         updateFromPointer(event);
@@ -393,6 +397,7 @@ function createTimelineWidget(hostNode) {
         }
         event.preventDefault();
         timelineWidget.dragging = false;
+        hostNode._lnlScrubActive = false;
         try {
             trackEl.releasePointerCapture(event.pointerId);
         } catch {
@@ -402,6 +407,7 @@ function createTimelineWidget(hostNode) {
     });
     trackEl.addEventListener("pointercancel", (event) => {
         timelineWidget.dragging = false;
+        hostNode._lnlScrubActive = false;
         try {
             trackEl.releasePointerCapture(event.pointerId);
         } catch {
@@ -422,6 +428,18 @@ function buildSequenceFrameUrl(sequence, frameIndex) {
         filename,
         subfolder: sequence.subfolder ?? "",
         type: sequence.type ?? "temp",
+    });
+    return api.apiURL(`/view?${params}`);
+}
+
+function buildAudioPreviewUrl(preview) {
+    if (!preview) {
+        return "";
+    }
+    const params = new URLSearchParams({
+        filename: preview.filename,
+        subfolder: preview.subfolder ?? "",
+        type: preview.type ?? "temp",
     });
     return api.apiURL(`/view?${params}`);
 }
@@ -455,6 +473,9 @@ function createImageSequencePlayer(previewWidget, hostNode) {
             this.currentFrame = clampedFrame;
             this.currentTime = (clampedFrame - 1) * this.frameDuration;
             previewWidget.renderSequenceFrame?.(clampedFrame);
+            if (!options.skipAudio) {
+                previewWidget.syncAudioToFrame?.(clampedFrame, { scrub: hostNode._lnlScrubActive });
+            }
             if (!options.silent) {
                 applyFrameState(hostNode, { currentFrame: clampedFrame }, { source: "currentFrame" });
             }
@@ -475,6 +496,7 @@ function createImageSequencePlayer(previewWidget, hostNode) {
             this.paused = false;
             this.ended = false;
             this._emit("playing");
+            previewWidget.playAudioFromFrame?.(this.currentFrame);
             const tick = () => {
                 if (this.paused) {
                     return;
@@ -500,6 +522,7 @@ function createImageSequencePlayer(previewWidget, hostNode) {
             if (!this.paused) {
                 this.paused = true;
                 this._emit("pause");
+                previewWidget.stopAudio?.();
             }
         },
         getFrameForNValue(nvalue) {
@@ -619,6 +642,138 @@ function createVideoPreviewWidget(hostNode) {
     previewWidget.imageEl.style.pointerEvents = "none";
     previewWidget.parentEl.appendChild(previewWidget.imageEl);
     previewWidget.parentEl.appendChild(previewWidget._videoEl);
+    previewWidget.audioEl = document.createElement("audio");
+    previewWidget.audioEl.preload = "auto";
+    previewWidget.audioEl.crossOrigin = "anonymous";
+    previewWidget.audioEl.style.display = "none";
+    previewWidget.parentEl.appendChild(previewWidget.audioEl);
+    previewWidget._audioSrc = null;
+    previewWidget._audioScrubTimer = null;
+    previewWidget._audioPending = null;
+    previewWidget._audioBoundPlayer = null;
+    previewWidget._audioListeners = null;
+
+    previewWidget.clearAudioSource = () => {
+        if (!previewWidget.audioEl) {
+            return;
+        }
+        previewWidget.stopAudio?.();
+        previewWidget.audioEl.removeAttribute("src");
+        previewWidget.audioEl.load();
+        previewWidget._audioSrc = null;
+    };
+
+    previewWidget.setAudioSource = (preview) => {
+        if (!previewWidget.audioEl) {
+            return;
+        }
+        if (!preview) {
+            previewWidget.clearAudioSource();
+            return;
+        }
+        const url = buildAudioPreviewUrl(preview);
+        if (!url || previewWidget._audioSrc === url) {
+            return;
+        }
+        previewWidget._audioSrc = url;
+        previewWidget.audioEl.src = url;
+        previewWidget.audioEl.load();
+    };
+
+    previewWidget.getAudioTimeForFrame = (frame) => {
+        const duration = previewWidget.value?.params?.duration ?? 0;
+        const frameDuration = previewWidget.value?.params?.frameDuration ?? 0;
+        if (frameDuration > 0) {
+            return Math.max(0, (frame - 1) * frameDuration);
+        }
+        if (duration > 0 && previewWidget.value?.params?.totalFrames) {
+            return Math.max(0, (frame - 1) * (duration / previewWidget.value.params.totalFrames));
+        }
+        return 0;
+    };
+
+    previewWidget.playAudioFromFrame = (frame, options = {}) => {
+        const audioEl = previewWidget.audioEl;
+        if (!audioEl || !previewWidget._audioSrc) {
+            return;
+        }
+        const time = previewWidget.getAudioTimeForFrame(frame);
+        const playMode = options.scrub ? "scrub" : "continuous";
+        const applySeek = () => {
+            try {
+                audioEl.currentTime = time;
+            } catch {
+                // ignore seek errors until ready
+            }
+            audioEl.play().catch(() => {});
+            if (playMode === "scrub") {
+                if (previewWidget._audioScrubTimer) {
+                    clearTimeout(previewWidget._audioScrubTimer);
+                }
+                previewWidget._audioScrubTimer = setTimeout(() => {
+                    audioEl.pause();
+                }, 120);
+            }
+        };
+        if (audioEl.readyState >= 1) {
+            applySeek();
+        } else {
+            previewWidget._audioPending = { time, scrub: options.scrub };
+            audioEl.addEventListener("loadedmetadata", function onMeta() {
+                audioEl.removeEventListener("loadedmetadata", onMeta);
+                if (previewWidget._audioPending) {
+                    const pending = previewWidget._audioPending;
+                    previewWidget._audioPending = null;
+                    previewWidget.playAudioFromFrame(frame, pending);
+                }
+            });
+        }
+    };
+
+    previewWidget.syncAudioToFrame = (frame, options = {}) => {
+        if (options?.skipAudio) {
+            return;
+        }
+        if (isVideoPlaying(previewWidget)) {
+            return;
+        }
+        previewWidget.playAudioFromFrame(frame, { scrub: !!options.scrub });
+    };
+
+    previewWidget.stopAudio = () => {
+        const audioEl = previewWidget.audioEl;
+        if (!audioEl) {
+            return;
+        }
+        if (previewWidget._audioScrubTimer) {
+            clearTimeout(previewWidget._audioScrubTimer);
+            previewWidget._audioScrubTimer = null;
+        }
+        audioEl.pause();
+    };
+
+    previewWidget._bindAudioToPlayer = (player) => {
+        if (!player || previewWidget._audioBoundPlayer === player) {
+            return;
+        }
+        if (previewWidget._audioBoundPlayer && previewWidget._audioListeners) {
+            const previous = previewWidget._audioBoundPlayer;
+            const listeners = previewWidget._audioListeners;
+            previous.removeEventListener?.("playing", listeners.playing);
+            previous.removeEventListener?.("pause", listeners.pause);
+            previous.removeEventListener?.("ended", listeners.ended);
+        }
+        const listeners = {
+            playing: () => previewWidget.playAudioFromFrame?.(player.getCurrentFrame?.() ?? 1),
+            pause: () => previewWidget.stopAudio?.(),
+            ended: () => previewWidget.stopAudio?.(),
+        };
+        player.addEventListener?.("playing", listeners.playing);
+        player.addEventListener?.("pause", listeners.pause);
+        player.addEventListener?.("ended", listeners.ended);
+        previewWidget._audioBoundPlayer = player;
+        previewWidget._audioListeners = listeners;
+    };
     previewWidget._lnlSequenceAspectReady = false;
     previewWidget.imageEl.addEventListener("load", () => {
         if (previewWidget.mode !== "image_sequence") {
@@ -657,6 +812,7 @@ function createVideoPreviewWidget(hostNode) {
         previewWidget._videoEl.style.display = "none";
         previewWidget.videoEl = previewWidget.sequencePlayer;
         previewWidget.sequencePlayer.setSequence(sequence);
+        previewWidget._bindAudioToPlayer(previewWidget.sequencePlayer);
         const totalFrames = Math.max(1, sequence.count || 1);
         const frameRate = sequence.frame_rate ?? 30;
         previewWidget.value.params.frameDuration = frameRate ? 1 / frameRate : 0;
@@ -672,7 +828,7 @@ function createVideoPreviewWidget(hostNode) {
             currentFrame,
             inPoint,
             outPoint,
-        }, { source: "init", updateVideo: true, force: true });
+        }, { source: "init", updateVideo: true, force: true, skipAudio: true });
         if (previewWidget.loaderEl) {
             previewWidget.loaderEl.style['visibility'] = "hidden";
         }
@@ -684,6 +840,7 @@ function createVideoPreviewWidget(hostNode) {
             previewWidget.imageEl.style.display = "none";
             previewWidget._videoEl.style.display = "";
         }
+        previewWidget._bindAudioToPlayer(previewWidget._videoEl);
     };
 
     previewWidget._videoEl.addEventListener("loadedmetadata", async () => {
@@ -718,7 +875,7 @@ function createVideoPreviewWidget(hostNode) {
                     currentFrame,
                     inPoint,
                     outPoint,
-                }, { source: "init", updateVideo: true });
+                }, { source: "init", updateVideo: true, skipAudio: true });
                 setWidgetValue(hostNode, hostNode.selectEveryNthFrameWidget, 1);
 
                 let lastTime = 0;
@@ -902,6 +1059,9 @@ function createVideoPreviewWidget(hostNode) {
         } else {
             this.currentTime = clampedFrame / totalFrames;
         }
+        if (!options.skipAudio) {
+            previewWidget.syncAudioToFrame?.(clampedFrame, { scrub: hostNode._lnlScrubActive });
+        }
         if (!options.silent) {
             applyFrameState(hostNode, { currentFrame: clampedFrame }, { source: "currentFrame" });
         }
@@ -946,6 +1106,7 @@ function createVideoPreviewWidget(hostNode) {
         updatePlayPauseControl(previewWidget, hostNode.playerControlsWidget)
     };
 
+    previewWidget._bindAudioToPlayer(previewWidget._videoEl);
     createLoaderOverlay(previewWidget);
     return previewWidget;
 }
@@ -1201,7 +1362,7 @@ function applyFrameState(node, updates, options = {}) {
     requestNodeRedraw(node);
 
     if (options.updateVideo && node.previewWidget?.videoEl) {
-        node.previewWidget.videoEl.setCurrentFrame(state.currentFrame, { silent: true });
+        node.previewWidget.videoEl.setCurrentFrame(state.currentFrame, { silent: true, skipAudio: options.skipAudio });
     }
 }
 
@@ -1382,6 +1543,13 @@ function registerPauseListener() {
                 outPoint: payload.out_point,
             });
         }
+        if (node.previewWidget?.setAudioSource) {
+            if (payload.audio_preview) {
+                node.previewWidget.setAudioSource(payload.audio_preview);
+            } else {
+                node.previewWidget.clearAudioSource?.();
+            }
+        }
         if (payload?.total_frames) {
             const totalFrames = Math.max(1, payload.total_frames);
             const isNewMedia = node._lnlLastTotalFrames !== totalFrames;
@@ -1401,7 +1569,7 @@ function registerPauseListener() {
                 currentFrame: resolvedCurrent,
                 inPoint: resolvedIn,
                 outPoint: resolvedOut,
-            }, { source: "init", updateVideo: true, force: true });
+            }, { source: "init", updateVideo: true, force: true, skipAudio: true });
             const selectEvery = shouldReset ? 1
                 : Number.isFinite(Number(payload.select_every_nth_frame))
                     ? Number(payload.select_every_nth_frame)
