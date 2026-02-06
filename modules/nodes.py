@@ -286,8 +286,13 @@ def _empty_audio_bytes():
 def _normalize_audio_dict(audio):
     if audio is None:
         return None
-    if isinstance(audio, Mapping) and "waveform" in audio:
-        return audio
+    if isinstance(audio, Mapping):
+        try:
+            if "waveform" in audio:
+                _ = audio.get("waveform") if hasattr(audio, "get") else audio["waveform"]
+                return audio
+        except Exception:
+            return None
     return None
 
 def _ensure_waveform_tensor(waveform):
@@ -320,7 +325,7 @@ def _pad_or_crop_waveform(waveform, target_samples):
 def _align_audio_to_video(audio, total_duration, trim_start, trim_duration):
     audio_dict = _normalize_audio_dict(audio)
     if not audio_dict:
-        return audio
+        return _empty_audio_dict()
     sample_rate = int(audio_dict.get("sample_rate") or 44100)
     if sample_rate <= 0:
         sample_rate = 44100
