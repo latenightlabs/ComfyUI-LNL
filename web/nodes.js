@@ -223,6 +223,12 @@ app.registerExtension({
         api.addEventListener("execution_end", clearQueuedFrameSelectorOverlays);
         api.addEventListener("execution_error", clearQueuedFrameSelectorOverlays);
         api.addEventListener("execution_interrupted", clearQueuedFrameSelectorOverlays);
+        api.addEventListener("status", (event) => {
+            const remaining = event?.detail?.exec_info?.queue_remaining;
+            if (typeof remaining === "number" && remaining === 0) {
+                clearQueuedFrameSelectorOverlays();
+            }
+        });
     },
     async setup() {
         registerGroupExtensions();
