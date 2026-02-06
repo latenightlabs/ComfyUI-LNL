@@ -278,6 +278,7 @@ function createPauseControlsWidget(hostNode) {
 function createTimelineWidget(hostNode) {
     const element = document.createElement("div");
     element.className = "lnl-timeline";
+    element.style.marginBottom = "0";
 
     const trackEl = document.createElement("div");
     trackEl.className = "lnl-timeline-track";
@@ -422,7 +423,10 @@ function createAudioEnvelopeWidget(hostNode) {
     const element = document.createElement("div");
     element.className = "lnl-audio-envelope";
     element.style.cursor = "pointer";
-    element.style.marginTop = "-0.25rem";
+    element.style.marginTop = "0";
+    element.style.marginBottom = "0";
+    element.style.height = "18px";
+    element.style.minHeight = "18px";
 
     const canvas = document.createElement("canvas");
     canvas.className = "lnl-audio-envelope-canvas";
@@ -567,6 +571,8 @@ function createAudioEnvelopeWidget(hostNode) {
         element.style.display = "";
     };
     widget.redraw = draw;
+    widget.noAudio = true;
+    setTimeout(draw, 0);
     return widget;
 }
 
