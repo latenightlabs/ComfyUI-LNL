@@ -422,7 +422,7 @@ function createAudioEnvelopeWidget(hostNode) {
     const element = document.createElement("div");
     element.className = "lnl-audio-envelope";
     element.style.cursor = "pointer";
-    element.style.marginTop = "-1px";
+    element.style.marginTop = "-0.25rem";
 
     const canvas = document.createElement("canvas");
     canvas.className = "lnl-audio-envelope-canvas";
@@ -556,12 +556,6 @@ function createAudioEnvelopeWidget(hostNode) {
         element.style.display = "none";
     };
     widget.redraw = draw;
-    setTimeout(() => {
-        const gapContainer = element.closest?.(".gap-y-1");
-        if (gapContainer) {
-            gapContainer.style.rowGap = "0";
-        }
-    }, 0);
     return widget;
 }
 
