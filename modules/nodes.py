@@ -367,7 +367,7 @@ class FrameSelectorV3():
             "optional": {
                 "images": ("IMAGE",),
                 "audio": ("AUDIO",),
-                "fps": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 240.0, "step": 0.1}),
+                "fps": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 240.0, "step": 0.1, "forceInput": True}),
                 "graph_id": ("STRING", {"default": ""}),
             },
             "hidden": {

@@ -2163,10 +2163,6 @@ function updateVideoInputAvailability(node) {
     const hasAudioInput = isInputConnected(node, "audio");
     const previousState = node._lnlUsingImageInput;
     node._lnlUsingImageInput = hasImageInput;
-    const fpsWidget = node.widgets?.find((w) => w.name === "fps");
-    if (fpsWidget) {
-        setWidgetDisabled(fpsWidget, !hasImageInput);
-    }
     if (node.pathWidget) {
         if (!node.pathWidget._lnlHideReady) {
             hideWidgetVisually(node.pathWidget);
