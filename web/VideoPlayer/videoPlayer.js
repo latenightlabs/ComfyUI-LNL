@@ -739,6 +739,7 @@ function createImageSequencePlayer(previewWidget, hostNode) {
 function createVideoPreviewWidget(hostNode) {
     const infiniteAR = 1000;
     const element = document.createElement("div");
+    element.style.minHeight = "140px";
     const previewWidget = hostNode.addDOMWidget("video_preview_widget", "preview", element, {
         serialize: false,
         hideOnZoom: false,
@@ -1041,6 +1042,7 @@ function createVideoPreviewWidget(hostNode) {
 
     previewWidget._videoEl.addEventListener("loadedmetadata", async () => {
         previewWidget.aspectRatio = previewWidget.videoEl.videoWidth / previewWidget.videoEl.videoHeight;
+        lnl_fitHeight(hostNode);
         previewWidget.loaderEl.style['visibility'] = "visible";
 
         let params = {}
@@ -1142,6 +1144,7 @@ function createVideoPreviewWidget(hostNode) {
     previewWidget._videoEl.addEventListener("error", () => {
         previewWidget.aspectRatio = infiniteAR;
         previewWidget.loaderEl.style['visibility'] = "hidden";
+        lnl_fitHeight(hostNode);
 
         setTimeout(() => {
             previewWidget.value.params.frameDuration = 1;
