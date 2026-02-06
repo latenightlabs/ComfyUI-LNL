@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
 
 import { createFrameSelectorWidgets } from "./VideoPlayer/videoPlayer.js";
 import { registerGroupExtensions, setupConfigAndSerialization } from "./EnhancedGroups/enhancedGroups.js";
@@ -70,6 +71,23 @@ function setQueuedOnOtherFrameSelectors(activeNode) {
         }
         node._lnlQueuedActive = true;
         node.previewWidget?.setProcessing?.(true, "Queued for execution...");
+    }
+}
+
+function clearQueuedFrameSelectorOverlays() {
+    const nodes = app.graph?._nodes ?? [];
+    for (const node of nodes) {
+        if (!node || !isFrameSelectorNode(node)) {
+            continue;
+        }
+        if (node._lnlPauseActive) {
+            continue;
+        }
+        if (node._lnlQueuedActive || node._lnlWaitingForOtherPause) {
+            node._lnlQueuedActive = false;
+            node._lnlWaitingForOtherPause = false;
+            node.previewWidget?.setProcessing?.(false);
+        }
     }
 }
 
@@ -202,6 +220,9 @@ app.registerExtension({
         lnlAddStylesheet(lnlGetUrl("css/lnlNodes.css", import.meta.url));
         
         setupConfigAndSerialization();
+        api.addEventListener("execution_end", clearQueuedFrameSelectorOverlays);
+        api.addEventListener("execution_error", clearQueuedFrameSelectorOverlays);
+        api.addEventListener("execution_interrupted", clearQueuedFrameSelectorOverlays);
     },
     async setup() {
         registerGroupExtensions();
