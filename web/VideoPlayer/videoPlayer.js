@@ -444,6 +444,7 @@ function createAudioEnvelopeWidget(hostNode) {
     widget.envelope = null;
     widget.totalFrames = 1;
     widget.currentFrame = 1;
+    widget.noAudio = false;
 
     const updateFromPointer = (event) => {
         const rect = element.getBoundingClientRect();
@@ -501,8 +502,7 @@ function createAudioEnvelopeWidget(hostNode) {
     const draw = () => {
         const values = widget.envelope?.values;
         if (!values || !values.length) {
-            element.style.display = "none";
-            return;
+            widget.noAudio = true;
         }
         element.style.display = "";
         const width = element.clientWidth || 1;
@@ -514,6 +514,13 @@ function createAudioEnvelopeWidget(hostNode) {
             return;
         }
         ctx.clearRect(0, 0, width, height);
+        if (widget.noAudio) {
+            ctx.fillStyle = "rgba(30, 32, 36, 0.65)";
+            ctx.fillRect(0, 0, width, height);
+            silentEl.textContent = "no audio";
+            silentEl.style.display = "block";
+            return;
+        }
         const maxVal = widget.envelope?.max || 1e-6;
         const threshold = maxVal * 0.05;
         const binCount = values.length;
@@ -535,6 +542,7 @@ function createAudioEnvelopeWidget(hostNode) {
             ctx.moveTo(x, 0);
             ctx.lineTo(x, height);
             ctx.stroke();
+            silentEl.textContent = "silence";
             silentEl.style.display = currentVal < threshold ? "block" : "none";
         } else {
             silentEl.style.display = "none";
@@ -543,6 +551,7 @@ function createAudioEnvelopeWidget(hostNode) {
 
     widget.setEnvelope = (envelope, totalFrames) => {
         widget.envelope = envelope;
+        widget.noAudio = !envelope || !envelope.values?.length;
         widget.totalFrames = totalFrames || widget.totalFrames;
         draw();
     };
@@ -552,8 +561,10 @@ function createAudioEnvelopeWidget(hostNode) {
     };
     widget.clear = () => {
         widget.envelope = null;
-        silentEl.style.display = "none";
-        element.style.display = "none";
+        widget.noAudio = true;
+        silentEl.textContent = "no audio";
+        silentEl.style.display = "block";
+        element.style.display = "";
     };
     widget.redraw = draw;
     return widget;
@@ -1750,7 +1761,7 @@ function registerPauseListener() {
         if (payload.audio_envelope && node.audioEnvelopeWidget?.setEnvelope) {
             node.audioEnvelopeWidget.setEnvelope(payload.audio_envelope, payload.total_frames);
         } else {
-            node.audioEnvelopeWidget?.clear?.();
+            node.audioEnvelopeWidget?.setEnvelope?.(null, payload.total_frames);
         }
         if (node.previewWidget?.setAudioSource) {
             if (payload.audio_preview) {
