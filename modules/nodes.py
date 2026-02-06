@@ -367,6 +367,7 @@ class FrameSelectorV3():
             "optional": {
                 "images": ("IMAGE",),
                 "audio": ("AUDIO",),
+                "fps": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 240.0, "step": 0.1}),
                 "graph_id": ("STRING", {"default": ""}),
             },
             "hidden": {
@@ -391,6 +392,7 @@ class FrameSelectorV3():
         pause_timeout=600,
         images=None,
         audio=None,
+        fps=None,
         graph_id=None,
         prompt=None,
         unique_id=None
@@ -422,7 +424,9 @@ class FrameSelectorV3():
         if using_image_batch:
             total_from_images = _get_images_length(images)
             total_frames = _safe_int(total_from_images, 1)
-            if frame_rate <= 0.0:
+            if _safe_float(fps, 0.0) > 0.0:
+                frame_rate = float(fps)
+            elif frame_rate <= 0.0:
                 frame_rate = 30.0
         else:
             full_video_path = lnl_fix_path(video_path)
@@ -664,6 +668,7 @@ class FrameSelectorV4(FrameSelectorV3):
         pause_timeout=600,
         images=None,
         audio=None,
+        fps=None,
         graph_id=None,
         prompt=None,
         unique_id=None
@@ -677,6 +682,7 @@ class FrameSelectorV4(FrameSelectorV3):
             pause_timeout,
             images,
             audio,
+            fps,
             graph_id,
             prompt,
             unique_id,

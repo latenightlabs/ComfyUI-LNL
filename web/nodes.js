@@ -36,6 +36,7 @@ function computeFrameSelectorSignature(node) {
         custom_height: getWidgetValue(node, "custom_height", 0),
         pause_on_execute: !!getWidgetValue(node, "pause_on_execute", false),
         pause_timeout: getWidgetValue(node, "pause_timeout", 0),
+        fps: getWidgetValue(node, "fps", 0),
         current_frame: getWidgetValue(node, "current_frame", 0),
         in_point: getWidgetValue(node, "in_point", 0),
         out_point: getWidgetValue(node, "out_point", 0),
