@@ -46,6 +46,9 @@ function computeFrameSelectorSignature(node) {
 }
 
 function setQueuedOnOtherFrameSelectors(activeNode) {
+    if (!activeNode?._lnlNeedsUpdate) {
+        return;
+    }
     const nodes = activeNode?.graph?._nodes ?? app.graph?._nodes ?? [];
     for (const node of nodes) {
         if (!node || node === activeNode) {
