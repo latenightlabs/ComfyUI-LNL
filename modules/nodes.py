@@ -74,6 +74,9 @@ def _get_images_cache_key(images, force_size, custom_width, custom_height):
     except Exception:
         return ("object", id(images), force_size, custom_width, custom_height)
 
+def _get_preview_cache_key(images_key, preview_size):
+    return ("preview", images_key, preview_size)
+
 def _get_audio_cache_key(audio, total_duration):
     audio_dict = _normalize_audio_dict(audio)
     if not audio_dict:
@@ -194,6 +197,24 @@ def _resize_image_batch(images, force_size, custom_width, custom_height):
         return images
     s = images.movedim(-1, 1)
     s = lnl_common_upscale(s, new_size[0], new_size[1], "lanczos", "center")
+    return s.movedim(1, -1)
+
+def _resize_image_batch_for_preview(images, preview_size):
+    if images is None or preview_size is None:
+        return images
+    try:
+        height = int(images.shape[1])
+        width = int(images.shape[2])
+    except Exception:
+        return images
+    max_dim = max(width, height)
+    if max_dim <= preview_size:
+        return images
+    scale = preview_size / float(max_dim)
+    new_width = max(1, int(round(width * scale)))
+    new_height = max(1, int(round(height * scale)))
+    s = images.movedim(-1, 1)
+    s = lnl_common_upscale(s, new_width, new_height, "lanczos", "center")
     return s.movedim(1, -1)
 
 def _save_image_sequence(images, unique_id, progress_callback=None):
@@ -532,8 +553,17 @@ class FrameSelectorV3():
                         preview_sequence = candidate
                 if preview_sequence is None:
                     send_progress(unique_id, graph_id_value, "Preparing image preview...", 0, total_frames)
+                    preview_source = images
+                    preview_size = 512
+                    preview_key = _get_preview_cache_key(images_cache_key, preview_size)
+                    cached_preview_images = getattr(self, "_lnl_cached_preview_images", None)
+                    if cached_preview_images and cached_preview_images.get("key") == preview_key:
+                        preview_source = cached_preview_images.get("images") or preview_source
+                    else:
+                        preview_source = _resize_image_batch_for_preview(images, preview_size)
+                        self._lnl_cached_preview_images = {"key": preview_key, "images": preview_source}
                     preview_sequence = _save_image_sequence(
-                        images,
+                        preview_source,
                         unique_id,
                         progress_callback=lambda current, total: send_progress(
                             unique_id,
