@@ -52,8 +52,10 @@ def lnl_get_audio(file, start_time=0, duration=0):
         return subprocess.run(args + ["-f", "wav", "-"],
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True).stdout
     except subprocess.CalledProcessError as e:
-        stderr = e.stderr.decode("utf-8") if e.stderr else ""
-        if _lnl_is_no_audio_error(stderr):
+        stderr = e.stderr.decode("utf-8", errors="ignore") if e.stderr else ""
+        stdout = e.stdout.decode("utf-8", errors="ignore") if e.stdout else ""
+        combined = (stderr + "\n" + stdout).strip()
+        if _lnl_is_no_audio_error(combined):
             return b""
         raise
 
@@ -82,11 +84,13 @@ def _lnl_get_audio(file, start_time=0, duration=0):
         audio = torch.frombuffer(bytearray(res.stdout), dtype=torch.float32)
         match = re.search(', (\\d+) Hz, (\\w+), ',res.stderr.decode('utf-8'))
     except subprocess.CalledProcessError as e:
-        stderr = e.stderr.decode("utf-8") if e.stderr else ""
-        if _lnl_is_no_audio_error(stderr):
+        stderr = e.stderr.decode("utf-8", errors="ignore") if e.stderr else ""
+        stdout = e.stdout.decode("utf-8", errors="ignore") if e.stdout else ""
+        combined = (stderr + "\n" + stdout).strip()
+        if _lnl_is_no_audio_error(combined):
             return lnl_empty_audio_dict()
         raise Exception(f"VHS failed to extract audio from {file}:\n" \
-                + stderr)
+                + (combined or stderr))
     if match:
         ar = int(match.group(1))
         #NOTE: Just throwing an error for other channel types right now
@@ -105,7 +109,12 @@ def _lnl_is_no_audio_error(stderr):
     if not stderr:
         return False
     text = stderr.lower()
-    return ("audio" not in text and "video" in text) or "matches no streams" in text or "no audio" in text or "does not contain any stream" in text
+    return ("audio" not in text and "video" in text) \
+        or "matches no streams" in text \
+        or "no audio" in text \
+        or "does not contain any stream" in text \
+        or "output file does not contain any stream" in text \
+        or ("error opening output file" in text and "pipe:" in text)
 
 class LNLLazyAudioMap(Mapping):
     def __init__(self, file, start_time, duration):
