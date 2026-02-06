@@ -422,6 +422,7 @@ function createAudioEnvelopeWidget(hostNode) {
     const element = document.createElement("div");
     element.className = "lnl-audio-envelope";
     element.style.cursor = "pointer";
+    element.style.marginTop = "-0.25rem";
 
     const canvas = document.createElement("canvas");
     canvas.className = "lnl-audio-envelope-canvas";
