@@ -144,7 +144,7 @@ function createPlayerControlsWidget(widgetName, hostNode, controlClickHandler) {
         hideOnZoom: false,
     });
     playerControlsWidget.computeSize = function (width) {
-        return [width, LiteGraph.NODE_WIDGET_HEIGHT * 2];
+        return [width, Math.round(LiteGraph.NODE_WIDGET_HEIGHT * 3)];
     }
     playerControlsWidget.parentEl = document.createElement("div");
     playerControlsWidget.parentEl.className = "player-controls-container";
