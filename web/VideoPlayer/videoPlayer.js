@@ -242,7 +242,7 @@ function createPauseControlsWidget(hostNode) {
         hideOnZoom: false,
     });
     pauseWidget.computeSize = function (width) {
-        return [width, LiteGraph.NODE_WIDGET_HEIGHT * 2];
+        return [width, Math.round(LiteGraph.NODE_WIDGET_HEIGHT * 1.8)];
     };
     pauseWidget.messageEl = messageEl;
     pauseWidget.element = element;
@@ -420,13 +420,15 @@ function createTimelineWidget(hostNode) {
 }
 
 function createAudioEnvelopeWidget(hostNode) {
+    const envelopeOverlap = 6;
+    const envelopeHeight = 18 + envelopeOverlap;
     const element = document.createElement("div");
     element.className = "lnl-audio-envelope";
     element.style.cursor = "pointer";
-    element.style.marginTop = "0";
+    element.style.marginTop = `-${envelopeOverlap}px`;
     element.style.marginBottom = "0";
-    element.style.height = "18px";
-    element.style.minHeight = "18px";
+    element.style.height = `${envelopeHeight}px`;
+    element.style.minHeight = `${envelopeHeight}px`;
 
     const canvas = document.createElement("canvas");
     canvas.className = "lnl-audio-envelope-canvas";
@@ -443,7 +445,7 @@ function createAudioEnvelopeWidget(hostNode) {
         hideOnZoom: false,
     });
     widget.computeSize = function (width) {
-        return [width, 18];
+        return [width, envelopeHeight];
     };
     widget.envelope = null;
     widget.totalFrames = 1;
