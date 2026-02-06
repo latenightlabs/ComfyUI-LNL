@@ -556,6 +556,12 @@ function createAudioEnvelopeWidget(hostNode) {
         element.style.display = "none";
     };
     widget.redraw = draw;
+    setTimeout(() => {
+        const gapContainer = element.closest?.(".gap-y-1");
+        if (gapContainer) {
+            gapContainer.style.rowGap = "0";
+        }
+    }, 0);
     return widget;
 }
 
