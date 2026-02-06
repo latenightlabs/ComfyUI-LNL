@@ -751,15 +751,18 @@ function createVideoPreviewWidget(hostNode) {
     });
 
     previewWidget.computeSize = function (width) {
+        const minHeight = 140;
         if (this.aspectRatio && !this.parentEl.hidden) {
             let height = (hostNode.size[0] - 20) / this.aspectRatio + 10;
             if (!(height > 0)) {
-                height = 0;
+                height = minHeight;
             }
+            height = Math.max(minHeight, height);
             this.computedHeight = height + 10;
             return [width, height];
         }
-        return [width, -4];
+        this.computedHeight = minHeight + 10;
+        return [width, minHeight];
     }
     previewWidget.aspectRatio = infiniteAR;
     previewWidget.value = { hidden: false, paused: false, params: {} }
@@ -767,6 +770,7 @@ function createVideoPreviewWidget(hostNode) {
     previewWidget.parentEl = document.createElement("div");
     previewWidget.parentEl.style['position'] = "relative";
     previewWidget.parentEl.style['width'] = "100%";
+    previewWidget.parentEl.style['minHeight'] = "140px";
     element.appendChild(previewWidget.parentEl);
     previewWidget._videoEl = document.createElement("video");
     previewWidget._videoEl.controls = false;
