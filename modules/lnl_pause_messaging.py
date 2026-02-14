@@ -3,7 +3,7 @@ from aiohttp import web
 from comfy.model_management import InterruptProcessingException, throw_exception_if_processing_interrupted
 import time, json
 from typing import Optional
-from .audio_preview import get_video_audio_preview
+from .audio_preview import get_video_audio_preview, get_video_audio_envelope
 
 REQUEST_RESHOW = "-1"
 CANCEL = "-3"
@@ -119,9 +119,16 @@ async def lnl_frame_selector_message(request):
 async def lnl_frame_selector_audio_preview(request):
     filename = request.rel_url.query.get("filename")
     if not filename:
-        return web.json_response({"preview": None})
+        return web.json_response({"preview": None, "envelope": None})
+    total_frames_raw = request.rel_url.query.get("total_frames")
+    try:
+        total_frames = int(total_frames_raw) if total_frames_raw is not None else 0
+    except (TypeError, ValueError):
+        total_frames = 0
+    bins = min(240, total_frames) if total_frames and total_frames > 0 else 240
     preview = get_video_audio_preview(filename)
-    return web.json_response({"preview": preview})
+    envelope = get_video_audio_envelope(filename, bins=bins)
+    return web.json_response({"preview": preview, "envelope": envelope})
 
 
 def wait_for_response(secs, uid, graph_id) -> Response:

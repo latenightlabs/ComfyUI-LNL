@@ -661,7 +661,8 @@ function createImageSequencePlayer(previewWidget, hostNode) {
                 if (this.paused) {
                     return;
                 }
-                const nextFrame = Math.min(this.currentFrame + 1, this.getOutPointFrame());
+                // Playback should cover the full media; in/out points are used for trim/export.
+                const nextFrame = Math.min(this.currentFrame + 1, this.getEndFrame());
                 if (nextFrame <= this.currentFrame) {
                     this.ended = true;
                     this.pause();
@@ -828,7 +829,7 @@ function createVideoPreviewWidget(hostNode) {
         previewWidget._audioSrc = null;
     };
 
-    previewWidget.setAudioSource = (preview) => {
+    previewWidget.setAudioSource = (preview, options = {}) => {
         if (!previewWidget.audioEl) {
             return;
         }
@@ -840,7 +841,9 @@ function createVideoPreviewWidget(hostNode) {
         if (!url || previewWidget._audioSrc === url) {
             return;
         }
-        previewWidget._useVideoAudio = false;
+        if (!options.keepVideoAudioMode) {
+            previewWidget._useVideoAudio = false;
+        }
         previewWidget._audioSrc = url;
         previewWidget.audioEl.src = url;
         previewWidget.audioEl.load();
@@ -884,13 +887,20 @@ function createVideoPreviewWidget(hostNode) {
         previewWidget._audioPreviewRequestId = requestId;
         try {
             const params = new URLSearchParams({ filename });
+            const totalFrames = Number(previewWidget.value?.params?.totalFrames);
+            if (Number.isFinite(totalFrames) && totalFrames > 0) {
+                params.set("total_frames", `${Math.floor(totalFrames)}`);
+            }
             const res = await api.fetchApi(`/lnl-frame-selector-audio-preview?${params.toString()}`);
             const json = await res.json();
             if (previewWidget._audioPreviewRequestId !== requestId) {
                 return;
             }
             if (json?.preview) {
-                previewWidget.setAudioSource(json.preview);
+                previewWidget.setAudioSource(json.preview, { keepVideoAudioMode: true });
+            }
+            if (hostNode.audioEnvelopeWidget?.setEnvelope) {
+                hostNode.audioEnvelopeWidget.setEnvelope(json?.envelope ?? null, totalFrames || 1);
             }
         } catch {
             // ignore preview errors
@@ -1095,6 +1105,7 @@ function createVideoPreviewWidget(hostNode) {
                     outPoint,
                 }, { source: "init", updateVideo: true, skipAudio: true });
                 setWidgetValue(hostNode, hostNode.selectEveryNthFrameWidget, 1);
+                previewWidget.requestVideoAudioPreview?.();
 
                 let lastTime = 0;
                 const syncCurrentFrame = () => {
@@ -1493,6 +1504,24 @@ function setWidgetValue(node, widget, value) {
     }
     targetNode?.graph?.setDirtyCanvas?.(true, true);
     app?.canvas?.setDirty?.(true, true);
+}
+
+function placeWidgetAfter(node, widgetToMove, referenceWidget) {
+    if (!node || !Array.isArray(node.widgets) || !widgetToMove || !referenceWidget) {
+        return;
+    }
+    const widgets = node.widgets;
+    const moveIndex = widgets.indexOf(widgetToMove);
+    const refIndex = widgets.indexOf(referenceWidget);
+    if (moveIndex === -1 || refIndex === -1) {
+        return;
+    }
+    if (moveIndex === refIndex + 1) {
+        return;
+    }
+    widgets.splice(moveIndex, 1);
+    const currentRefIndex = widgets.indexOf(referenceWidget);
+    widgets.splice(currentRefIndex + 1, 0, widgetToMove);
 }
 
 function ensureFrameState(node) {
@@ -2329,6 +2358,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         // Add upload widget
         const uploadWidget = createUploadWidget(this, pathWidget);
         this.uploadWidget = uploadWidget;
+        placeWidgetAfter(this, uploadWidget, pathWidget);
 
         const sizeWidget = this.widgets.find((w) => w.name === 'force_size');
         const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');

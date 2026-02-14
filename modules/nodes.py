@@ -37,6 +37,20 @@ def _safe_float(value, default):
     except (TypeError, ValueError):
         return default
 
+def _normalize_force_size(force_size, allowed_values):
+    if force_size is None:
+        return "Disabled"
+    value = str(force_size).strip()
+    legacy_map = {
+        "256": "256x256",
+        "512": "512x512",
+    }
+    if value in legacy_map:
+        return legacy_map[value]
+    if value in allowed_values:
+        return value
+    return "Disabled"
+
 def _normalize_images(images):
     if images is None:
         return None
@@ -280,6 +294,27 @@ def _empty_audio_dict(sample_rate=44100):
         "sample_rate": sample_rate,
     }
 
+def _safe_audio_output_dict(audio, fallback_sample_rate=44100):
+    audio_dict = _normalize_audio_dict(audio)
+    if not audio_dict:
+        return {
+            "waveform": torch.zeros((1, 1, 1), dtype=torch.float32),
+            "sample_rate": int(fallback_sample_rate) if fallback_sample_rate and fallback_sample_rate > 0 else 44100,
+        }
+    sample_rate = int(audio_dict.get("sample_rate") or fallback_sample_rate or 44100)
+    if sample_rate <= 0:
+        sample_rate = 44100
+    waveform = _ensure_waveform_tensor(audio_dict.get("waveform"))
+    if waveform is None or waveform.numel() == 0:
+        return {
+            "waveform": torch.zeros((1, 1, 1), dtype=torch.float32),
+            "sample_rate": sample_rate,
+        }
+    return {
+        "waveform": waveform,
+        "sample_rate": sample_rate,
+    }
+
 def _empty_audio_bytes():
     return b""
 
@@ -371,6 +406,19 @@ def getImageBatch(full_video_path, number_of_frames_to_process, select_every_nth
 class FrameSelectorV3():
 
     supported_video_extensions =  ['webm', 'mp4', 'mkv']
+    force_size_options = [
+        "Disabled",
+        "Custom Height",
+        "Custom Width",
+        "Custom",
+        "256x?",
+        "?x256",
+        "256x256",
+        "512x?",
+        "?x512",
+        "512x512",
+    ]
+    legacy_force_size_options = ["256", "512"]
 
     @classmethod
     def INPUT_TYPES(s):
@@ -391,7 +439,7 @@ class FrameSelectorV3():
         return {
             "required": {
                 "video_path": ("STRING", {"default": default_video_path}),
-                "force_size": (["Disabled", "Custom Height", "Custom Width", "Custom", "256x?", "?x256", "256x256", "512x?", "?x512", "512x512"],),
+                "force_size": (FrameSelectorV3.force_size_options + FrameSelectorV3.legacy_force_size_options,),
                 "custom_width": ("INT", {"default": 512, "min": 0, "max": 8192, "step": 8}),
                 "custom_height": ("INT", {"default": 512, "min": 0, "max": 8192, "step": 8}),
                 "pause_on_execute": ("BOOLEAN", {"default": False}),
@@ -434,6 +482,7 @@ class FrameSelectorV3():
             custom_width = 512
         if custom_height is None:
             custom_height = 512
+        force_size = _normalize_force_size(force_size, FrameSelectorV3.force_size_options)
         prompt_inputs = {}
         if isinstance(prompt, dict):
             node_data = prompt.get(str(unique_id)) or prompt.get(unique_id) or {}
@@ -758,7 +807,7 @@ class FrameSelectorV4(FrameSelectorV3):
                 send_progress(unique_id, graph_id_value, "Aligning audio...")
             audio_value = _align_audio_to_video(audio, total_duration, trim_start, trim_duration)
         elif using_image_batch:
-            audio_value = _empty_audio_dict()
+            audio_value = _safe_audio_output_dict(_empty_audio_dict())
         else:
             full_video_path = lnl_fix_path(video_path)
             audio_value = lnl_lazy_get_audio(
@@ -766,6 +815,7 @@ class FrameSelectorV4(FrameSelectorV3):
                 trim_start,
                 trim_duration
             )
+        audio_value = _safe_audio_output_dict(audio_value)
 
         safe_frame_rate = _safe_float(frame_rate, 0.0)
         if safe_frame_rate <= 0.0:

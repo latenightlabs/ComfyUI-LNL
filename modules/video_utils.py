@@ -21,6 +21,8 @@ which is licensed under the GNU General Public License version 3 (GPL-3.0):
 
 """
 
+_AUDIO_STREAM_PROBE_CACHE = {}
+
 def __lnl_ffmpeg_suitability(path):
     try:
         version = subprocess.run([path, "-version"], check=True,
@@ -43,7 +45,9 @@ def __lnl_ffmpeg_suitability(path):
     return score
 
 def lnl_get_audio(file, start_time=0, duration=0):
-    args = [ffmpeg_path, "-v", "error", "-i", file]
+    if ffmpeg_path is None:
+        return b""
+    args = [ffmpeg_path, "-v", "error", "-nostdin", "-i", file, "-map", "0:a:0", "-vn"]
     if start_time > 0:
         args += ["-ss", str(start_time)]
     if duration > 0:
@@ -58,6 +62,8 @@ def lnl_get_audio(file, start_time=0, duration=0):
         if _lnl_is_no_audio_error(combined):
             return b""
         raise
+    except OSError:
+        return b""
 
 def lnl_lazy_eval(func):
     class Cache:
@@ -71,8 +77,51 @@ def lnl_lazy_eval(func):
     cache = Cache(func)
     return lambda : cache.get()
 
+def _lnl_probe_audio_stream_params(file):
+    cached = _AUDIO_STREAM_PROBE_CACHE.get(file)
+    if cached is not None:
+        return cached
+
+    ffprobe_cmd = shutil.which("ffprobe")
+    if ffprobe_cmd is None and ffmpeg_path is not None:
+        ffprobe_name = "ffprobe.exe" if os.name == "nt" else "ffprobe"
+        ffprobe_candidate = os.path.join(os.path.dirname(ffmpeg_path), ffprobe_name)
+        if os.path.exists(ffprobe_candidate):
+            ffprobe_cmd = ffprobe_candidate
+
+    if ffprobe_cmd is None:
+        _AUDIO_STREAM_PROBE_CACHE[file] = (None, None)
+        return (None, None)
+
+    cmd = [
+        ffprobe_cmd,
+        "-v", "error",
+        "-select_streams", "a:0",
+        "-show_entries", "stream=sample_rate,channels",
+        "-of", "json",
+        file,
+    ]
+    try:
+        process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+        data = json.loads(process.stdout) if process.stdout else {}
+        stream = (data.get("streams") or [None])[0]
+        if not isinstance(stream, dict):
+            _AUDIO_STREAM_PROBE_CACHE[file] = (None, None)
+            return (None, None)
+        sample_rate_raw = stream.get("sample_rate")
+        channels_raw = stream.get("channels")
+        sample_rate = int(sample_rate_raw) if str(sample_rate_raw).isdigit() else None
+        channels = int(channels_raw) if isinstance(channels_raw, int) else None
+        _AUDIO_STREAM_PROBE_CACHE[file] = (sample_rate, channels)
+        return (sample_rate, channels)
+    except Exception:
+        _AUDIO_STREAM_PROBE_CACHE[file] = (None, None)
+        return (None, None)
+
 def _lnl_get_audio(file, start_time=0, duration=0):
-    args = [ffmpeg_path, "-i", file]
+    if ffmpeg_path is None:
+        return lnl_empty_audio_dict()
+    args = [ffmpeg_path, "-v", "error", "-nostdin", "-i", file, "-map", "0:a:0", "-vn"]
     if start_time > 0:
         args += ["-ss", str(start_time)]
     if duration > 0:
@@ -103,14 +152,17 @@ def _lnl_get_audio(file, start_time=0, duration=0):
             return lnl_empty_audio_dict()
         raise Exception(f"VHS failed to extract audio from {file}:\n" \
                 + (combined or stderr))
+    except OSError:
+        return lnl_empty_audio_dict()
     if match:
         ar = int(match.group(1))
-        #NOTE: Just throwing an error for other channel types right now
-        #Will deal with issues if they come
+        # NOTE: Just throwing an error for other channel types right now
+        # Will deal with issues if they come
         ac = {"mono": 1, "stereo": 2}.get(match.group(2), 2)
     else:
-        ar = 44100
-        ac = 2
+        probed_ar, probed_ac = _lnl_probe_audio_stream_params(file)
+        ar = probed_ar if probed_ar and probed_ar > 0 else 44100
+        ac = probed_ac if probed_ac and probed_ac > 0 else 2
     if ac <= 0:
         ac = 2
     usable_values = (audio.numel() // ac) * ac
@@ -143,15 +195,24 @@ class LNLLazyAudioMap(Mapping):
         self._dict=None
     def __getitem__(self, key):
         if self._dict is None:
-            self._dict = _lnl_get_audio(self.file, self.start_time, self.duration)
+            try:
+                self._dict = _lnl_get_audio(self.file, self.start_time, self.duration)
+            except Exception:
+                self._dict = lnl_empty_audio_dict()
         return self._dict[key]
     def __iter__(self):
         if self._dict is None:
-            self._dict = _lnl_get_audio(self.file, self.start_time, self.duration)
+            try:
+                self._dict = _lnl_get_audio(self.file, self.start_time, self.duration)
+            except Exception:
+                self._dict = lnl_empty_audio_dict()
         return iter(self._dict)
     def __len__(self):
         if self._dict is None:
-            self._dict = _lnl_get_audio(self.file, self.start_time, self.duration)
+            try:
+                self._dict = _lnl_get_audio(self.file, self.start_time, self.duration)
+            except Exception:
+                self._dict = lnl_empty_audio_dict()
         return len(self._dict)
 
 def lnl_lazy_get_audio(file, start_time=0, duration=0):
