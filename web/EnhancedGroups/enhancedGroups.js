@@ -33,8 +33,7 @@ async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
     // Process and remove links that are not between group nodes
     {
         const groupLinkIds = new Set([]);
-        // TODO: Make sure that we're not saving links that are not between group nodes
-        const groupNodeIds = groupNode._nodes.map(node => node.id);
+        const groupNodeIds = new Set(groupNode._nodes.map(node => node.id));
         for (const node of groupNode._nodes) {
             if (node.inputs) {
                 node.inputs.forEach(input => {
@@ -55,23 +54,30 @@ async function saveGroup(menuItem, options, e, menu, groupNode, saveAsNew) {
             }
         }
         groupData.links = Array.from(groupLinkIds).map(linkId => {
-            let linkIndex = -1;
-            if (typeof app.graph.links === 'object') {
-                Object.keys(app.graph.links).forEach(link => {
-                    if (app.graph.links[link].id === linkId) {
-                        linkIndex = linkId;
+            let link = null;
+            const graphLinks = app.graph.links;
+            if (Array.isArray(graphLinks)) {
+                link = graphLinks.find((entry) => entry && entry.id === linkId) || null;
+            } else if (graphLinks && typeof graphLinks === "object") {
+                link = graphLinks[linkId] || null;
+                if (!link) {
+                    for (const key of Object.keys(graphLinks)) {
+                        if (graphLinks[key]?.id === linkId) {
+                            link = graphLinks[key];
+                            break;
+                        }
                     }
-                });
+                }
             }
-            else {
-                linkIndex = app.graph.links.findIndex(link => {
-                    return link ? link.id === linkId : false;
-                });
-            }
-            if (linkIndex === -1) {
+            if (!link) {
                 return null;
             }
-            return app.graph.links[linkIndex].serialize();
+            const originId = link.origin_id;
+            const targetId = link.target_id;
+            if (!groupNodeIds.has(originId) || !groupNodeIds.has(targetId)) {
+                return null;
+            }
+            return link.serialize();
         }).filter(link => link !== null);
     }
 

@@ -81,8 +81,20 @@ def _lnl_get_audio(file, start_time=0, duration=0):
         #TODO: scan for sample rate and maintain
         res =  subprocess.run(args + ["-f", "f32le", "-"],
                               capture_output=True, check=True)
-        audio = torch.frombuffer(bytearray(res.stdout), dtype=torch.float32)
-        match = re.search(', (\\d+) Hz, (\\w+), ',res.stderr.decode('utf-8'))
+        stderr_text = res.stderr.decode("utf-8", errors="ignore")
+        raw_audio = res.stdout or b""
+        if len(raw_audio) == 0:
+            return lnl_empty_audio_dict()
+        # f32le must be 4-byte aligned; truncate trailing partial bytes defensively.
+        remainder = len(raw_audio) % 4
+        if remainder:
+            raw_audio = raw_audio[: len(raw_audio) - remainder]
+        if len(raw_audio) == 0:
+            return lnl_empty_audio_dict()
+        audio = torch.frombuffer(bytearray(raw_audio), dtype=torch.float32)
+        if audio.numel() == 0:
+            return lnl_empty_audio_dict()
+        match = re.search(', (\\d+) Hz, (\\w+), ', stderr_text)
     except subprocess.CalledProcessError as e:
         stderr = e.stderr.decode("utf-8", errors="ignore") if e.stderr else ""
         stdout = e.stdout.decode("utf-8", errors="ignore") if e.stdout else ""
@@ -95,10 +107,17 @@ def _lnl_get_audio(file, start_time=0, duration=0):
         ar = int(match.group(1))
         #NOTE: Just throwing an error for other channel types right now
         #Will deal with issues if they come
-        ac = {"mono": 1, "stereo": 2}[match.group(2)]
+        ac = {"mono": 1, "stereo": 2}.get(match.group(2), 2)
     else:
         ar = 44100
         ac = 2
+    if ac <= 0:
+        ac = 2
+    usable_values = (audio.numel() // ac) * ac
+    if usable_values <= 0:
+        return lnl_empty_audio_dict(ar)
+    if usable_values != audio.numel():
+        audio = audio[:usable_values]
     audio = audio.reshape((-1,ac)).transpose(0,1).unsqueeze(0)
     return {'waveform': audio, 'sample_rate': ar}
 

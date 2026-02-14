@@ -376,14 +376,21 @@ class FrameSelectorV3():
     def INPUT_TYPES(s):
         input_dir = folder_paths.get_input_directory()
         files = []
-        for f in os.listdir(input_dir):
-            if os.path.isfile(os.path.join(input_dir, f)):
-                file_parts = f.split('.')
-                if len(file_parts) > 1 and (file_parts[-1] in FrameSelectorV3.supported_video_extensions):
-                    files.append(f)
+        for root, _, filenames in os.walk(input_dir):
+            for filename in filenames:
+                file_parts = filename.rsplit(".", 1)
+                if len(file_parts) <= 1:
+                    continue
+                if file_parts[-1].lower() not in FrameSelectorV3.supported_video_extensions:
+                    continue
+                full_path = os.path.join(root, filename)
+                rel_path = os.path.relpath(full_path, input_dir).replace("\\", "/")
+                files.append(rel_path)
+        files = sorted(set(files))
+        default_video_path = files[0] if files else ""
         return {
             "required": {
-                "video_path": (sorted(files),),
+                "video_path": ("STRING", {"default": default_video_path}),
                 "force_size": (["Disabled", "Custom Height", "Custom Width", "Custom", "256x?", "?x256", "256x256", "512x?", "?x512", "512x512"],),
                 "custom_width": ("INT", {"default": 512, "min": 0, "max": 8192, "step": 8}),
                 "custom_height": ("INT", {"default": 512, "min": 0, "max": 8192, "step": 8}),
@@ -455,6 +462,8 @@ class FrameSelectorV3():
             elif frame_rate <= 0.0:
                 frame_rate = 30.0
         else:
+            if not isinstance(video_path, str) or not video_path.strip():
+                raise ValueError("video_path is required when images input is not connected")
             full_video_path = lnl_fix_path(video_path)
             info_frame_rate, info_total_frames, _ = get_video_info(full_video_path)
             total_frames = _safe_int(info_total_frames, 1)
@@ -502,7 +511,7 @@ class FrameSelectorV3():
                     audio_preview = cached_audio.get("preview")
                 if audio_preview is None:
                     try:
-                        video_audio = lnl_get_audio(full_video_path, 0.0, total_duration)
+                        video_audio = lnl_lazy_get_audio(full_video_path, 0.0, total_duration)
                     except Exception:
                         video_audio = _empty_audio_dict()
                     envelope_audio = video_audio
@@ -538,7 +547,7 @@ class FrameSelectorV3():
                 cached_env = getattr(self, "_lnl_cached_audio_envelope", None)
                 if not (cached_env and cached_env.get("key") == envelope_cache_key):
                     try:
-                        envelope_audio = lnl_get_audio(full_video_path, 0.0, total_duration)
+                        envelope_audio = lnl_lazy_get_audio(full_video_path, 0.0, total_duration)
                     except Exception:
                         envelope_audio = _empty_audio_dict()
                     envelope = _compute_audio_envelope(envelope_audio, total_frames, bins=bins)
@@ -666,7 +675,7 @@ class FrameSelectorV3():
             else:
                 if pause_on_execute and not pause_completed:
                     send_progress(unique_id, graph_id_value, "Extracting audio...")
-                audio_value = lnl_lazy_eval(lambda: lnl_get_audio(full_video_path, starting_frame * target_frame_time,
+                audio_value = lnl_lazy_eval(lambda: lnl_get_audio(full_video_path, max(0.0, (starting_frame - 1) * target_frame_time),
                                        frames_to_process*target_frame_time*select_every_nth_frame))
             filename_value = video_path
 
@@ -741,7 +750,7 @@ class FrameSelectorV4(FrameSelectorV3):
         pause_completed = bool(getattr(self, "_lnl_pause_completed", False))
 
         using_image_batch = _normalize_images(images) is not None
-        trim_start = in_point * self.target_frame_time
+        trim_start = max(0.0, (in_point - 1) * self.target_frame_time)
         trim_duration = frames_to_process * self.target_frame_time * select_every_nth_frame
         total_duration = total_frames * self.target_frame_time
         if audio is not None:

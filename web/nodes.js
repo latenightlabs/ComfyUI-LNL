@@ -96,9 +96,14 @@ function clearQueuedFrameSelectorOverlays() {
 }
 
 function setupFrameSelectorNodeHandlers(nodeType) {
+    if (nodeType?.prototype?._lnlExecutionHandlersPatched) {
+        return;
+    }
+    nodeType.prototype._lnlExecutionHandlersPatched = true;
+
     const originalOnExecutionStart = nodeType.prototype.onExecutionStart;
     nodeType.prototype.onExecutionStart = function () {
-        this.previewWidget.videoEl.pause();
+        this.previewWidget?.videoEl?.pause?.();
         const pauseWidget = this.widgets?.find((w) => w.name === "pause_on_execute");
         const signature = computeFrameSelectorSignature(this);
         const lastSignature = this._lnlLastSignature ?? this._lnlLastExecutedSignature;
@@ -212,8 +217,12 @@ function setupFrameSelectorNodeHandlers(nodeType) {
     nodeType.prototype.setSize = function (size) {
         originalSetSize?.apply(this, arguments);
 
-        const clampedWidth = Math.max(size[0], 390);
-        this.size = [clampedWidth, size[1]];
+        const currentSize = Array.isArray(size) ? size : this.size;
+        if (!Array.isArray(currentSize) || currentSize.length < 2) {
+            return;
+        }
+        const clampedWidth = Math.max(currentSize[0], 390);
+        this.size = [clampedWidth, currentSize[1]];
     };
 }
 

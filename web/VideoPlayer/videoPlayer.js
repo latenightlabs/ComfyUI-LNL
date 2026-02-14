@@ -1235,7 +1235,10 @@ function createVideoPreviewWidget(hostNode) {
         }
         Object.assign(previewWidget.value.params, params || {});
         previewWidget.updateSource();
-        if (previewWidget._useVideoAudio) {
+        const shouldUseVideoAudio = !hostNode?._lnlUsingImageInput && !isInputConnected(hostNode, "audio");
+        previewWidget._useVideoAudio = shouldUseVideoAudio;
+        if (shouldUseVideoAudio) {
+            previewWidget.setAudioSourceFromVideo?.();
             previewWidget.requestVideoAudioPreview?.();
         }
     };
@@ -1881,9 +1884,13 @@ function createUploadWidget(hostNode, pathWidget) {
                 }
                 const filename = fileInput.files[0].name;
                 const fullFilePath = `${filename}`;
-                pathWidget.options.values.push(fullFilePath);
-                pathWidget.options.values.sort();
-                pathWidget.value = fullFilePath;
+                if (Array.isArray(pathWidget?.options?.values)) {
+                    if (!pathWidget.options.values.includes(fullFilePath)) {
+                        pathWidget.options.values.push(fullFilePath);
+                        pathWidget.options.values.sort();
+                    }
+                }
+                setWidgetValue(hostNode, pathWidget, fullFilePath);
                 if (pathWidget.callback) {
                     pathWidget.callback(fullFilePath)
                 }
@@ -1962,23 +1969,24 @@ function hideWidgetVisually(widget) {
         }
         return [target_width, LiteGraph.NODE_WIDGET_HEIGHT];
     };
-    widget.draw = (ctx, node, widget_width, y, widget_height) => {
-        if (widget.hidden) {
-            return;
-        }
-        if (widget._lnlOriginalDraw) {
+    // Only wrap custom draw/mouse handlers when they already exist.
+    // For default LiteGraph widgets, overriding draw/mouse can hide visuals while keeping hit area active.
+    if (widget._lnlOriginalDraw) {
+        widget.draw = (ctx, node, widget_width, y, widget_height) => {
+            if (widget.hidden) {
+                return;
+            }
             return widget._lnlOriginalDraw(ctx, node, widget_width, y, widget_height);
-        }
-    };
-    widget.mouse = function () {
-        if (widget.hidden) {
-            return true;
-        }
-        if (widget._lnlOriginalMouse) {
+        };
+    }
+    if (widget._lnlOriginalMouse) {
+        widget.mouse = function () {
+            if (widget.hidden) {
+                return true;
+            }
             return widget._lnlOriginalMouse(...arguments);
-        }
-        return false;
-    };
+        };
+    }
     widget.serialize = true;
     applyWidgetVisibility(widget);
 }
@@ -1991,7 +1999,10 @@ function enableHiddenTypeToggle(widget) {
     widget._lnlOriginalType = widget.type;
     Object.defineProperty(widget, "type", {
         get() {
-            return widget.hidden ? "hidden" : widget._lnlOriginalType;
+            if (widget.hidden && !widget._lnlKeepTypeOnHide) {
+                return "hidden";
+            }
+            return widget._lnlOriginalType;
         },
         set(value) {
             widget._lnlOriginalType = value;
@@ -2160,16 +2171,7 @@ function isInputConnected(node, name) {
         return true;
     }
     if (Array.isArray(input.links) && input.links.length) {
-        return true;
-    }
-    const links = node?.graph?.links ?? app?.graph?.links;
-    if (links) {
-        for (const key of Object.keys(links)) {
-            const link = links[key];
-            if (link?.target_id === node.id && link?.target_slot === inputIndex) {
-                return true;
-            }
-        }
+        return input.links.some((linkId) => linkId !== null && linkId !== undefined);
     }
     return false;
 }
@@ -2207,6 +2209,8 @@ function updateVideoInputAvailability(node) {
     if (node.previewWidget) {
         node._lnlUseVideoAudio = !hasImageInput && !hasAudioInput;
         if (node._lnlUseVideoAudio) {
+            node.previewWidget._useVideoAudio = true;
+            node.previewWidget.setAudioSourceFromVideo?.();
             node.previewWidget.requestVideoAudioPreview?.();
         } else if (!hasAudioInput) {
             node.previewWidget.clearAudioSource?.();
@@ -2250,6 +2254,11 @@ function syncImageConnectionState(node) {
 
 // Create widgets
 export async function createFrameSelectorWidgets(nodeType) {
+    if (nodeType?.prototype?._lnlWidgetLifecyclePatched) {
+        return;
+    }
+    nodeType.prototype._lnlWidgetLifecyclePatched = true;
+
     const originalNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
         originalNodeCreated?.apply(this, arguments);
@@ -2267,8 +2276,31 @@ export async function createFrameSelectorWidgets(nodeType) {
         this.doubleSliderWidget = doubleSliderWidget;
         updateSliderValues(doubleSliderWidget, this, 1, 1);
 
+        // Add video preview widget first so widget callbacks can safely target it.
+        const previewWidget = createVideoPreviewWidget(this);
+        this.previewWidget = previewWidget;
+
+        // Add timeline widget
+        const timelineWidget = createTimelineWidget(this);
+        this.timelineWidget = timelineWidget;
+
+        // Audio envelope widget (below timeline)
+        const audioEnvelopeWidget = createAudioEnvelopeWidget(this);
+        this.audioEnvelopeWidget = audioEnvelopeWidget;
+
+        // Pause controls widget
+        const pauseControlsWidget = createPauseControlsWidget(this);
+        this.pauseControlsWidget = pauseControlsWidget;
+
         // Add path widget
         const pathWidget = this.widgets.find((w) => w.name === "video_path");
+        if (!pathWidget) {
+            console.warn("LNL: video_path widget not found during initialization");
+            return;
+        }
+        pathWidget._lnlKeepTypeOnHide = true;
+        setWidgetHidden(pathWidget, false);
+        setWidgetDisabled(pathWidget, false);
         pathWidget.callback = (value, componentCreated) => {
             markNodeNeedsUpdate(that);
             if (typeof componentCreated === "boolean" && componentCreated === true) {
@@ -2297,29 +2329,6 @@ export async function createFrameSelectorWidgets(nodeType) {
         // Add upload widget
         const uploadWidget = createUploadWidget(this, pathWidget);
         this.uploadWidget = uploadWidget;
-        scheduleInputAvailabilitySync(this);
-
-        /*
-        Attribution: ComfyUI-VideoHelperSuite
-
-        Portions of this code are adapted from GitHub repository `https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite`,
-        which is licensed under the GNU General Public License version 3 (GPL-3.0):
-        */
-        // Add video preview widget
-        const previewWidget = createVideoPreviewWidget(this);
-        this.previewWidget = previewWidget;
-
-        // Add timeline widget
-        const timelineWidget = createTimelineWidget(this);
-        this.timelineWidget = timelineWidget;
-
-        // Audio envelope widget (below timeline)
-        const audioEnvelopeWidget = createAudioEnvelopeWidget(this);
-        this.audioEnvelopeWidget = audioEnvelopeWidget;
-
-        // Pause controls widget
-        const pauseControlsWidget = createPauseControlsWidget(this);
-        this.pauseControlsWidget = pauseControlsWidget;
 
         const sizeWidget = this.widgets.find((w) => w.name === 'force_size');
         const customWidthWidget = this.widgets.find((w) => w.name === 'custom_width');
@@ -2351,6 +2360,8 @@ export async function createFrameSelectorWidgets(nodeType) {
             lnl_fitHeight(that);
         }
         normalizePauseTimeoutWidget(this);
+        updateVideoInputAvailability(this);
+        scheduleInputAvailabilitySync(this);
 
         // Add double slider widget (keep it hidden but serialized)
         document.body.appendChild(doubleSliderWidget.inputEl);
@@ -2468,6 +2479,7 @@ export async function createFrameSelectorWidgets(nodeType) {
         // Make sure to reload video after refreshing
         setTimeout(() => {
             pathWidget.callback(pathWidget.value, true);
+            updateVideoInputAvailability(this);
             scheduleInputAvailabilitySync(this);
             this.graph?.setDirtyCanvas(true, true);
         }, 10);
@@ -2541,6 +2553,7 @@ export async function createFrameSelectorWidgets(nodeType) {
             lnl_fitHeight(this);
         }
         normalizePauseTimeoutWidget(this);
+        updateVideoInputAvailability(this);
         scheduleInputAvailabilitySync(this);
     };
 }

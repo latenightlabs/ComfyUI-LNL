@@ -39,7 +39,9 @@ class MessageState:
     _latest: "Optional[MessageState]" = None
     graph_id_expected = None
 
-    def __init__(self, data: dict | str = {}):
+    def __init__(self, data: dict | str | None = None):
+        if data is None:
+            data = {}
         data_dict: dict = data if isinstance(data, dict) else json.loads(data)
         self.graph_id: Optional[str] = data_dict.pop("graph_id", None)
         self.special: Optional[str] = data_dict.pop("special", None)

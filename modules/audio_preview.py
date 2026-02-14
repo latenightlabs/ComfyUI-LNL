@@ -2,20 +2,26 @@ import os
 import time
 import wave
 from typing import Optional
+from collections.abc import Mapping
 
 import torch
 
 import folder_paths
 from .utils import lnl_fix_path
-from .video_utils import lnl_get_audio
+from .video_utils import lnl_lazy_get_audio
 
 _CACHE = {}
 
 def _normalize_audio_dict(audio):
     if audio is None:
         return None
-    if isinstance(audio, dict) and "waveform" in audio:
-        return audio
+    if isinstance(audio, Mapping):
+        try:
+            if "waveform" in audio:
+                _ = audio.get("waveform") if hasattr(audio, "get") else audio["waveform"]
+                return audio
+        except Exception:
+            return None
     return None
 
 def _ensure_waveform_tensor(waveform):
@@ -90,7 +96,7 @@ def get_video_audio_preview(video_path: str) -> Optional[dict]:
     if cached:
         return cached
     try:
-        audio = lnl_get_audio(full_path, 0.0, 0.0)
+        audio = lnl_lazy_get_audio(full_path, 0.0, 0.0)
     except Exception:
         audio = _empty_audio_dict()
     return _save_audio_preview(audio, key)
