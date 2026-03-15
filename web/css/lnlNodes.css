@@ -2,14 +2,29 @@
     width: 100%;
     height: 100%;
     min-width: 290px;
+    min-height: 48px;
+    background: rgba(24, 26, 30, 0.9);
+    border-radius: 6px;
+    padding: 10px 4px;
+    box-sizing: border-box;
 }
 
 .player-grid-container {
     display: grid;
     grid-template-columns: repeat(9, 30px);
+    grid-auto-rows: 30px;
     justify-content: center;
     align-content: center;
     gap: 10px;
+    min-height: 30px;
+}
+
+.player-grid-container > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
 }
 
 .player-grid-item {
@@ -49,4 +64,189 @@
     transform: translateY(-50%);
     font-family: Tahoma, sans-serif;
     font-size: 120%;
+}
+
+.lnl-loader-text {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #e6e8ec;
+}
+
+.lnl-processing-overlay {
+    position: absolute;
+    display: block;
+    top: 0px;
+    bottom: 4px;
+    left: 0px;
+    z-index: 1000;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.55);
+    visibility: hidden;
+}
+
+.lnl-loader-bar {
+    margin: 10px auto 0;
+    width: 140px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.lnl-loader-bar-fill {
+    width: 30%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(110, 200, 130, 0.7), rgba(120, 170, 255, 0.9));
+    border-radius: inherit;
+    transition: width 120ms ease;
+}
+
+.lnl-timeline {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+.lnl-timeline-track {
+    position: relative;
+    height: 20px;
+    margin: 0;
+    background: #5c6672;
+    border-radius: 3px;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+    width: 100%;
+}
+
+.lnl-timeline-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #e2e6ec;
+    pointer-events: none;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.lnl-timeline-pre {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0%;
+    background: #99b8aa;
+}
+
+.lnl-timeline-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0%;
+    background: #5f7b91;
+}
+
+.lnl-timeline-post {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0%;
+    background: #ba6c6a;
+}
+
+.lnl-timeline-marker {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    transform: translateX(-1px);
+    pointer-events: none;
+}
+
+.lnl-timeline-marker-current {
+    background: #aa9;
+}
+
+.lnl-timeline-marker-in {
+    background: #16c172;
+}
+
+.lnl-timeline-marker-out {
+    background: #c12926;
+}
+
+.lnl-audio-envelope {
+    position: relative;
+    width: 100%;
+    height: 18px;
+    margin-top: 0;
+    margin-bottom: 0;
+    box-sizing: border-box;
+    display: block;
+    z-index: 1;
+}
+
+.lnl-audio-envelope-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: rgba(30, 32, 36, 0.65);
+    border-radius: 3px;
+}
+
+.lnl-audio-silence {
+    position: absolute;
+    right: 6px;
+    top: 1px;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: rgba(220, 220, 220, 0.75);
+    pointer-events: none;
+}
+
+.lnl-pause-controls {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 8px;
+    min-height: 36px;
+    background: rgba(20, 20, 22, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.lnl-pause-message {
+    color: #e6e8ec;
+    font-size: 12px;
+    flex: 1 1 auto;
+}
+
+.lnl-pause-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.lnl-pause-continue,
+.lnl-pause-cancel {
+    background: #2b2f36;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #f1f3f5;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.lnl-pause-continue:hover {
+    background: #3a6f4a;
+    border-color: rgba(110, 200, 130, 0.6);
+}
+
+.lnl-pause-cancel:hover {
+    background: #7a2d2d;
+    border-color: rgba(220, 90, 90, 0.6);
 }

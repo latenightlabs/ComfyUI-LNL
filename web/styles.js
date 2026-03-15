@@ -17,8 +17,12 @@ export function getLNLPositionStyle(ctx, widget_width, y, node, widget_height) {
         switch (w.type) {
             case "double_slider":
                 w.width_margin = margin;
+                const baseWidth = Math.min(widget_width, node.size?.[0] ?? widget_width);
+                const trackWidth = Math.max(0, baseWidth - margin * 2);
+                w._track_width = trackWidth;
+                w._track_left = margin;
                 ctx.fillStyle = LiteGraph.WIDGET_BGCOLOR;
-                ctx.fillRect(margin, y, widget_width - margin * 2, h);
+                ctx.fillRect(margin, y, trackWidth, h);
                 var range = w.options.max - w.options.min;
                 var nvalue = (w.value.current - w.options.min) / range;
                 if(nvalue < 0.0) nvalue = 0.0;
@@ -32,7 +36,7 @@ export function getLNLPositionStyle(ctx, widget_width, y, node, widget_height) {
                     startNValue = clamp((markerPosition - w.options.min) / range, 0.0, 1.0);
 
                     ctx.fillStyle = "#99B8AA";
-                    ctx.fillRect(margin, y, Math.min(startNValue, nvalue) * (widget_width - margin * 2), h);
+                    ctx.fillRect(margin, y, Math.min(startNValue, nvalue) * trackWidth, h);
                 }
 
                 // End marker
@@ -43,38 +47,40 @@ export function getLNLPositionStyle(ctx, widget_width, y, node, widget_height) {
 
                     if (nvalue > endNValue) {
                         ctx.fillStyle = "#BA6C6A";
-                        ctx.fillRect(margin + endNValue * (widget_width - margin * 2), y, (Math.min(1.0, nvalue) - endNValue) * (widget_width - margin * 2), h);
+                        ctx.fillRect(margin + endNValue * trackWidth, y, (Math.min(1.0, nvalue) - endNValue) * trackWidth, h);
                     }
                 }
 
                 // Position marker
                 if (nvalue > startNValue) {
                     ctx.fillStyle = w.options.hasOwnProperty("slider_color") ? w.options.slider_color : "#678";
-                    ctx.fillRect(margin + startNValue * (widget_width - margin * 2), y, (Math.min(nvalue, endNValue) - startNValue) * (widget_width - margin * 2), h);
+                    ctx.fillRect(margin + startNValue * trackWidth, y, (Math.min(nvalue, endNValue) - startNValue) * trackWidth, h);
                 }
 
                 //// Draw markers
                 // Start marker
                 if (w.value.startMarkerFrame !== undefined) {
                     ctx.fillStyle = "#16C172";
-                    ctx.fillRect(margin + startNValue * (widget_width - margin * 2), y - h * 0.125, 2, h * 1.25);
+                    ctx.fillRect(margin + startNValue * trackWidth, y - h * 0.125, 2, h * 1.25);
                 }
 
                 // End marker
                 if (w.value.endMarkerFrame !== undefined) {
                     ctx.fillStyle = "#C12926";
-                    ctx.fillRect(margin + endNValue * (widget_width - margin * 2), y - h * 0.125, 2, h * 1.25);
+                    ctx.fillRect(margin + endNValue * trackWidth, y - h * 0.125, 2, h * 1.25);
                 }
 
                 // Position marker
-                if (w.pointerIsDown && w.marker) {
+                if (w.marker) {
                     const markerPosition = w.value.currentFrame * 100 / w.value.totalFrames;
                     var marker_nvalue = clamp((markerPosition - w.options.min) / range, 0.0, 1.0);
                     ctx.fillStyle = w.options.hasOwnProperty("marker_color") ? w.options.marker_color : "#AA9";
-                    ctx.fillRect(margin + marker_nvalue * (widget_width - margin * 2), y - h * 0.125, 2, h * 1.25);
+                    ctx.fillRect(margin + marker_nvalue * trackWidth, y - h * 0.125, 2, h * 1.25);
 
-                    ctx.strokeStyle = ctx.fillStyle;
-                    ctx.strokeRect(margin + marker_nvalue * (widget_width - margin * 2) - 3, y - h * 0.125 - 5, 8, h * 1.25 + 10);
+                    if (w.pointerIsDown) {
+                        ctx.strokeStyle = ctx.fillStyle;
+                        ctx.strokeRect(margin + marker_nvalue * trackWidth - 3, y - h * 0.125 - 5, 8, h * 1.25 + 10);
+                    }
                 }
 
                 if (showText) {
@@ -86,7 +92,7 @@ export function getLNLPositionStyle(ctx, widget_width, y, node, widget_height) {
                                                             ? w.options.precision
                                                             : 3
                                                     ),
-                        widget_width * 0.5,
+                        margin + trackWidth * 0.5,
                         y + h * 0.7
                     );
                 }
@@ -108,9 +114,9 @@ export function getLNLPositionStyle(ctx, widget_width, y, node, widget_height) {
         left: `0px`, 
         top: `0px`,
         position: "absolute",
-        maxWidth: `${widget_width - margin * 2}px`,
+        maxWidth: `${Math.max(0, (node.size?.[0] ?? widget_width) - margin * 2)}px`,
         maxHeight: `${widget_height - margin*2}px`,
-        width: `auto`,
-        height: `auto`,
+        width: `${Math.max(0, (node.size?.[0] ?? widget_width) - margin * 2)}px`,
+        height: `${h}px`,
     }
 }
